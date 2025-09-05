@@ -1,0 +1,107 @@
+name: Build and Deploy Nbdev
+run-name: ${{ gitea.actor }} is Building a Nbdev Project
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+    steps:
+      - name: Install GitHub CLI
+        run: |
+          sudo apt update
+          sudo apt install -y gh
+
+      - name: Create MemexPlatform directories and DB file
+        run: |
+          BASE="$HOME/.memexplatform"
+          mkdir -p "$BASE/portal"
+          mkdir -p "$BASE/nbs"
+          mkdir -p "$BASE/plugins"
+          DBFILE="$BASE/memexplatform.db"
+          if [ ! -f "$DBFILE" ]; then
+            touch "$DBFILE"
+          fi
+          echo "Created:"
+          echo "  $BASE/portal"
+          echo "  $BASE/nbs"
+          echo "  $BASE/plugins"
+          echo "  $DBFILE"
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install git packages and do CI
+        run: |
+          set -ux
+          python -m pip install --upgrade pip
+          pip install -U "git+http://${{ secrets.MEMEX_USERNAME }}:${{ secrets.MEMEX_PAT }}@gitea:7171/rahuketu86/memexplatform.git"
+          pip install -U "git+http://${{ secrets.MEMEX_USERNAME }}:${{ secrets.MEMEX_PAT }}@gitea:7171/rahuketu86/memexplatform_chat.git"
+          pip install -U nbdev
+          echo "Doing editable install..."
+          test -f setup.py && pip install -e ".[dev]"
+          echo "Check we are starting with clean git checkout"
+          if [[ `git status --porcelain -uno` ]]; then
+            git diff
+            echo "git status is not clean"
+            false
+          fi
+          echo "Trying to strip out notebooks"
+          nbdev_clean
+          echo "Check that strip out was unnecessary"
+          git status -s # display the status to see which nbs need cleaning up
+          if [[ `git status --porcelain -uno` ]]; then
+            git status -uno
+            echo -e "!!! Detected unstripped out notebooks\n!!!Remember to run nbdev_install_hooks"
+            echo -e "This error can also happen if you are using an older version of nbdev relative to what is in CI.  Please try to upgrade nbdev with the command `pip install -U nbdev`"
+            false
+          fi
+          nbdev_export
+          if [[ `git status --porcelain -uno` ]]; then
+            echo "::error::Notebooks and library are not in sync.  Please run nbdev_export."
+            git status -uno
+            git diff
+            exit 1;
+          fi
+          nbdev_test 
+    
+      # - name: Nbdev ci
+      #   uses: fastai/workflows/nbdev-ci@master
+
+      - name: Set up Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+
+      - name: Install Tinytex
+        run: quarto install tinytex
+      
+      - name: Build Nbdev Docs
+        run: |
+          rm -rf _proc
+          python3 -m venv .venv
+          source .venv/bin/activate
+          pip install --upgrade pip
+          pip install "nbdev<2.4.3"
+          pip install -U "git+http://${{ secrets.MEMEX_USERNAME }}:${{ secrets.MEMEX_PAT }}@gitea:7171/rahuketu86/memexplatform.git"
+          pip install -U "git+http://${{ secrets.MEMEX_USERNAME }}:${{ secrets.MEMEX_PAT }}@gitea:7171/rahuketu86/memexplatform_chat.git"
+          pip install -e .[dev]
+          nbdev_docs --n_workers 1
+        shell: bash
+  
+      - name: Minio Deploy
+        uses: hkdobrev/minio-deploy-action@v1
+        with:
+          endpoint: ${{ secrets.MINIO_ENDPOINT }}
+          access_key: ${{ secrets.MINIO_ACCESS_KEY }}
+          secret_key: ${{ secrets.MINIO_SECRET_KEY }}
+          bucket: 'gitpages'
+          source_dir: '_docs'
+          target_dir: '/memexplatform_ragchat.app.beast.local'

@@ -1,0 +1,14 @@
+name: Upload NBDev Package to Gitea PyPI
+
+on:
+  workflow_dispatch:
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Use custom upload action
+        uses:  http://gitea:7171/rahuketu86/workflows/upload-nbdev-gitea@main
+        with:
+          username: ${{ secrets.MEMEX_USERNAME }}
+          password: ${{ secrets.MEMEX_PAT }}

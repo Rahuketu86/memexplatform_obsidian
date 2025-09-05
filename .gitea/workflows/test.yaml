@@ -1,0 +1,79 @@
+name: Test Gitea PyPI Connectivity
+
+on:
+  # push:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Test internal Gitea PyPI index (via Docker host name `gitea`)
+        id: internal
+        run: |
+          echo "Testing internal Gitea PyPI index..."
+          if curl --fail --silent http://gitea:7171/api/packages/rahuketu86/pypi/simple > /dev/null; then
+            echo "✅ Internal Gitea index is reachable"
+            echo "pypi_index=http://gitea:7171/api/packages/rahuketu86/pypi/simple" >> $GITHUB_ENV
+            echo "trusted_host=gitea" >> $GITHUB_ENV
+          else
+            echo "❌ Internal Gitea index failed, trying reverse proxy..."
+            echo "try_external=true" >> $GITHUB_ENV
+          fi
+
+      - name: Output selected PyPI index
+        run: |
+          echo "Using index: ${{ env.pypi_index }}"
+          echo "Trusted host: ${{ env.trusted_host }}"
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Uninstall
+        run: |
+          pip uninstall memexplatform -y
+
+      - name: Debug Gitea URLs
+        run: |
+          echo "=== Testing index URL ==="
+          curl -v http://gitea:7171/api/packages/rahuketu86/pypi/simple/memexplatform/
+          
+          echo "=== Testing direct download URL ==="
+          curl -I http://gitea:7171/api/packages/rahuketu86/pypi/files/memexplatform/0.0.1/memexplatform-0.0.1-py3-none-any.whl
+          
+          echo "=== DNS resolution ==="
+          nslookup gitea || true
+          nslookup gitea.beast.local || true
+
+      - name: Install git packages
+        run: |
+          pip install "git+http://${{ secrets.MEMEX_USERNAME }}:${{ secrets.MEMEX_PAT }}@gitea:7171/rahuketu86/memexplatform.git"
+
+
+
+
+      # - name: Download and Install .whl from Gitea Package Registry
+      #   run: |
+      #     curl -u ${{ secrets.MEMEX_USERNAME }}:${{ secrets.MEMEX_PAT }} \
+      #       -O http://gitea:7171/api/packages/${{ secrets.MEMEX_USERNAME }}/pypi/files/memexplatform-0.1.0-py3-none-any.whl
+      #     ls -la
+      #     pip install memexplatform-0.1.0-py3-none-any.whl --no-deps
+
+      # - name: Install with verbose output
+      #   env:
+      #     GITEA_HOST: gitea.beast.local
+      #     OWNER: ${{ secrets.MEMEX_USERNAME }}
+      #     USER: ${{ secrets.MEMEX_USERNAME }}
+      #     TOKEN: ${{ secrets.MEMEX_PAT }}
+      #   run: |
+      #     pip install memexplatform \
+      #       --trusted-host gitea \
+      #       --trusted-host gitea.beast.local \
+      #       --index-url=http://${USER}:${TOKEN}@${GITEA_HOST}/api/packages/rahuketu86/pypi/simple/ \
+      #       --no-deps \
+      #       --verbose
