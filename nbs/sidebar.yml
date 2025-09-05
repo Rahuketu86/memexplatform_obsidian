@@ -1,0 +1,8 @@
+website:
+  sidebar:
+    contents:
+      - index.ipynb
+      - 00_core.ipynb
+      - 02_plugin.ipynb
+      - 03_settings.ipynb
+      - 04_commons.ipynb

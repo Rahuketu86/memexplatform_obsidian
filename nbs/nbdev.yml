@@ -1,0 +1,9 @@
+project:
+  output-dir: _docs
+
+website:
+  title: "memexplatform_obsidian"
+  site-url: "https://rahuketu86.github.io/memexplatform_obsidian"
+  description: "Obsidian Companion"
+  repo-branch: main
+  repo-url: "https://github.com/rahuketu86/memexplatform_obsidian"
