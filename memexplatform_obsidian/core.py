@@ -9,6 +9,7 @@ __all__ = ['app', 'rt', 'create_app', 'index']
 from fasthtml.common import *
 from monsterui.all import *
 from .commons import config, MountPaths
+from memexplatform.ui.structure import ifhtmx
 
 # %% ../nbs/00_core.ipynb 4
 def create_app():

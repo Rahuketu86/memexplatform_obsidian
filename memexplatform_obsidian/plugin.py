@@ -23,8 +23,8 @@ def mount_apps():
 @hookimpl
 def get_nav_items():
     nav_dict = {
-        "Discover": [
-            ("Obsidian", '/'),
+        "Obsidian": [
+            ("Home", '/'),
         ],
     }
     return add_prefix_to_routes(nav_dict, prefix)
