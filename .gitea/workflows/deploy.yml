@@ -104,4 +104,4 @@ jobs:
           secret_key: ${{ secrets.MINIO_SECRET_KEY }}
           bucket: 'gitpages'
           source_dir: '_docs'
-          target_dir: '/memexplatform_ragchat.app.beast.local'
+          target_dir: '/memexplatform_obsidian.app.beast.local'
