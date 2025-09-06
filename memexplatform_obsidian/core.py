@@ -9,8 +9,6 @@ __all__ = ['app', 'rt', 'create_app', 'index']
 from fasthtml.common import *
 from monsterui.all import *
 from .commons import config, MountPaths
-from memexplatform.ui.structure import ifhtmx, add_prefix_to_routes
-from memexplatform.ui.external import embed_external_app
 
 # %% ../nbs/00_core.ipynb 4
 def create_app():
