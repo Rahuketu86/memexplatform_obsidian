@@ -7,13 +7,19 @@ __all__ = ['ObsidianConfig']
 
 # %% ../nbs/03_settings.ipynb 3
 from pydantic import BaseModel, SecretStr, SecretBytes, HttpUrl, AnyHttpUrl, Field, FilePath, IPvAnyAddress, NewPath, DirectoryPath
-from typing import Optional
+from typing import Optional, List, AnyStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 import pathlib
+from pydantic import field_validator
 import os
 
 # %% ../nbs/03_settings.ipynb 5
 class ObsidianConfig(BaseSettings):
     """MemexPlatform Configuration"""
-    model_config = SettingsConfigDict(env_prefix="MEMEXPLATFORM_")
+    model_config = SettingsConfigDict(
+        env_prefix="MEMEXPLATFORM_",
+        env_parse_none_str="",
+    )
+
     PREFIX: str = "/obsidian"
+    OBSIDIAN_VAULT: DirectoryPath

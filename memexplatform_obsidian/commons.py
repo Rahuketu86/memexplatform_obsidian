@@ -17,6 +17,7 @@ config = ObsidianConfig(); config
 # %% ../nbs/04_commons.ipynb 5
 class MountPaths(Enum):
     gradio_url = config.PREFIX + "_gradio"
+    open = "/open"
 
     def get_mount_name(self):
         return self.value.rsplit("/")[-1]
