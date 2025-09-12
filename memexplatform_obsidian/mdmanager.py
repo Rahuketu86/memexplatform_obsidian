@@ -40,7 +40,7 @@ def get_subdirs(vault: Path):
             subdirs.append(p)
     return subdirs
 
-# %% ../nbs/05_mdmanager.ipynb 10
+# %% ../nbs/05_mdmanager.ipynb 9
 class WikiLink(Link):
     """
     Obsidian-style wikilink [[Note|Alias]] that behaves like mistletoe.Link.
@@ -64,38 +64,23 @@ class WikiLink(Link):
         # children: inline text tokens for the alias (like how Link holds link text)
         self.children = [RawText(self.alias)]
 
-# %% ../nbs/05_mdmanager.ipynb 11
+# %% ../nbs/05_mdmanager.ipynb 10
 class AnyLink(span_token.SpanToken):
-    # Match any URI scheme NOT inside markdown link syntax [text](...)
-    pattern = re.compile(
-        r'(?<!\])([a-zA-Z][a-zA-Z0-9+.-]*://[^\s]+|\[\[.*?\]\])'
-    )
+    """
+    Match any URI scheme like obsidian://, logseq://, code://, http://, https:// etc.
+    Does NOT match markdown links [text](...) or wikilinks [[Note]].
+    """
+    # Must capture the whole URL in group 1
+    pattern = re.compile(r'(?<![\]\)"])(([a-zA-Z][a-zA-Z0-9+.-]*://[^\s]+))')
+    parse_group = 1
 
     def __init__(self, match):
-        content = match.group(1)  # capture group 1 excludes the negative lookbehind
-        self.children = (RawText(content),)
-        self.target = content
-        self.title = "" 
+        url = match.group(1)
+        self.children = (RawText(url),)
+        self.target = url
+        self.title = ""
 
-# %% ../nbs/05_mdmanager.ipynb 12
-# class Properties(Token):
-
-#     repr_attributes = ("key", "children")
-#     def __init__(self, key, value_tokens):
-#         self.key = key
-
-#         # Normalize: ensure value_tokens is a flat list of Token objects
-#         if isinstance(value_tokens, list):
-#             flat = []
-#             for v in value_tokens:
-#                 if isinstance(v, list):
-#                     flat.extend(v)  # flatten nested list
-#                 else:
-#                     flat.append(v)
-#             self.children = flat
-#         else:
-#             self.children = [value_tokens]
-
+# %% ../nbs/05_mdmanager.ipynb 11
 class Properties(Token):
     repr_attributes = ("key", "children")
 
@@ -132,70 +117,31 @@ class Properties(Token):
             # Fallback for non-string values
             return [RawText(str(value))]
 
-# %% ../nbs/05_mdmanager.ipynb 13
-# def parse_wikilinks(obj):
-#     if isinstance(obj, str):
-#         # Tokenize inline content using WikiLink
-#         tokens = tokenize(obj, (WikiLink,))
-#         # If only one token, return it; else return list
-#         return tokens[0] if len(tokens) == 1 else tokens
-#     elif isinstance(obj, list):
-#         return [parse_wikilinks(x) for x in obj]
-#     elif isinstance(obj, dict):
-#         return {k: parse_wikilinks(v) for k, v in obj.items()}
-#     else:
-#         return obj
-
-class TagLink(span_token.SpanToken):
+# %% ../nbs/05_mdmanager.ipynb 12
+class TagLink(Link):
     """
-    Custom span token for Obsidian-style tags that behaves like a Link.
-    This is only used internally and should not be registered as a span token.
+    Obsidian-style tag link #tag that behaves like a mistletoe.Link.
+    Renders to <a href="/tags/tag">#tag</a> or similar.
     """
-    # Add a pattern that will never match anything
-    pattern = re.compile(r'(?!.*)')  # Negative lookahead that never matches
+    # Matches hashtags at word boundaries: # followed by word characters/dashes
+    pattern = re.compile(r'(?<!\w)#([\w\-]+)')
+    parse_group = 0
     parse_inner = False
-    
-    def __init__(self, tag_text):
-        self.target = "#" + str(tag_text)
+
+    def __init__(self, match):
+        tag_name = match.group(1)
+
+        # URL target (you can change the prefix to match your app)
+        self.target = f"/tags/{tag_name}"
         self.title = ""
-        self.children = [RawText("#" + str(tag_text))] if tag_text else None
+        self.label = None
+        self.dest_type = "taglink"
+        self.title_delimiter = None
 
-# def parse_markdown_inline(text: str):
-#     """Parse a string as inline markdown, returning span tokens."""
-#     stripped = text.strip()
+        # Displayed text is "#tag"
+        self.children = [RawText(f"#{tag_name}")]
 
-#     # Match any URI scheme (http(s), obsidian://, logseq://, etc.)
-#     if re.match(r'^[a-zA-Z][a-zA-Z0-9+.-]*://\S+', stripped):
-#         return AutoLink(stripped)
-
-#     # Otherwise fall back to inline markdown parsing
-#     return span_token.tokenize_inner(stripped)
-
-
-# def parse_markdown_inline(text):
-#     """Parse a string as inline markdown, returning span tokens."""
-#     stripped = text.strip()
-
-#     # Match any URI scheme (http(s), obsidian://, logseq://, etc.)
-#     match = AutoLink.pattern.match(stripped)
-#     if match:
-#         return AutoLink(match)  # ✅ pass match, not string
-
-#     # Otherwise fall back to inline markdown parsing
-#     return span_token.tokenize_inner(stripped)
-
-# def parse_inline_value(value):
-#     """Parse values recursively, treating strings as markdown."""
-#     if isinstance(value, str):
-#         # Parse string as inline markdown (will include WikiLinks and other span tokens)
-#         return parse_markdown_inline(value)
-#     elif isinstance(value, list):
-#         return [parse_inline_value(v) for v in value]
-#     elif isinstance(value, dict):
-#         return {k: parse_inline_value(v) for k, v in value.items()}
-#     else:
-#         return RawText(str(value))
-        
+# %% ../nbs/05_mdmanager.ipynb 13
 class Frontmatter(BlockToken):
     """
     YAML Frontmatter token.
@@ -222,7 +168,13 @@ class Frontmatter(BlockToken):
         self.children = []
 
         for k, v in self.data.items():
-            self.children.append(Properties(k, v))
+            if k.lower() == "tags":
+                tags = v if isinstance(v, list) else [v]
+                            # Prepend "#" so later inline parsing makes TagLinks
+                processed = [f"#{t}" for t in tags if isinstance(t, str)]
+                self.children.append(Properties(k, processed))
+            else: self.children.append(Properties(k, v))
+    
             # if k == "tags":
             #     tags = v if isinstance(v, list) else [v]
             #     tokenized = [
@@ -266,7 +218,7 @@ class ObsidianAstRenderer(AstRenderer):
         return self.render_link(token)
 
     def render_tag_link(self, token):
-        return token.children
+        return self.render_link(token)
     
     def render_frontmatter(self, token: Frontmatter) -> dict:
         # Just return dict so AST expansion shows structured metadata
@@ -285,7 +237,7 @@ class ObsidianHTMLRenderer(HTMLRenderer):
     
     def render_tag_link(self, token):
         """Render TagLink as a span with tag styling."""
-        return f'<span class="tag">{self.render_inner(token)}</span>'
+        return self.render_link(token)
 
     def render_frontmatter(self, token: Frontmatter) -> str:
         if not token.children:

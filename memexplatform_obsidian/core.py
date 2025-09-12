@@ -68,12 +68,28 @@ def app_route(request:Request, file: str = ""):
 
         html = None
         with ObsidianHTMLRenderer() as renderer:
-            doc = get_obsidianmd_ast(text)
+            doc = get_obsidianmd_ast(text); print(doc)
             html = renderer.render(doc)
-            print(html)
-        return ifhtmx(request, Div(
-            f"File: {file_path}",
-            NotStr(apply_classes(html))
+            # print(html)
+        return ifhtmx(request, 
+            Container( H1(file_path.stem, cls='uk-h1 text-4xl font-bold mt-12 mb-6'), 
+            NotStr(apply_classes(html)) 
         ))
-
-
+        # return ifhtmx(request,
+        #         Container(
+        #             f"File: {file_path}",
+        #             NotStr(apply_classes(html)),
+        #             classes="max-w-screen overflow-x-auto break-words p-6 pr-12 bg-base-100 rounded-md shadow-sm"
+        #         )
+        #     )
+        # return ifhtmx(request,
+        #             DivHStacked(
+        #                 Div(classes="w-1/12"),  # left 10%
+        #                 Div(
+        #                     NotStr(apply_classes(html)) ,
+        #                     classes="w-10/12 break-words p-6 bg-base-100 rounded-md shadow-sm"
+        #                 ),
+        #                 Div(classes="w-1/12"),  # right 10%
+        #                 cls="flex"
+        #             )
+        #         )
