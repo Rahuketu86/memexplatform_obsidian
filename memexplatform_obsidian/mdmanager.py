@@ -4,7 +4,8 @@
 
 # %% auto 0
 __all__ = ['config', 'get_subdirs', 'ObsidianLink', 'WikiLink', 'AnyLink', 'Properties', 'TagLink', 'Frontmatter',
-           'ObsidianAstRenderer', 'ObsidianHTMLRenderer', 'get_obsidianmd_ast', 'print_ast']
+           'ObsidianAstRenderer', 'ObsidianHTMLRenderer', 'get_obsidianmd_ast', 'print_ast', 'get_frontmatter',
+           'get_property', 'get_title']
 
 # %% ../nbs/05_mdmanager.ipynb 3
 from .settings import ObsidianConfig
@@ -211,17 +212,6 @@ class Frontmatter(BlockToken):
                 processed = [f"#{t}" for t in tags if isinstance(t, str)]
                 self.children.append(Properties(k, processed))
             else: self.children.append(Properties(k, v))
-    
-            # if k == "tags":
-            #     tags = v if isinstance(v, list) else [v]
-            #     tokenized = [
-            #         TagLink(tag) if isinstance(tag, str) else parse_inline_value(tag)
-            #         for tag in tags
-            #     ]
-            #     self.children.append(Properties(k, tokenized))
-            # else:
-            #     # parsed_value = parse_inline_value(v)
-            #     self.children.append(Properties(k, v))
 
     @classmethod
     def start(cls, line: str) -> bool:
@@ -320,3 +310,25 @@ def print_ast(token, indent=0):
     if children:
         for child in children:
             print_ast(child, indent + 1)
+
+# %% ../nbs/05_mdmanager.ipynb 26
+def get_frontmatter(doc):
+    for o in doc.children:
+        if type(o).__name__ == 'Frontmatter': return o
+    return None
+
+# %% ../nbs/05_mdmanager.ipynb 27
+def get_property(doc, key='title'):
+    fm = get_frontmatter(doc)
+    if fm:
+        for p in fm.children:
+            if p.key ==key: return p
+    return None
+
+# %% ../nbs/05_mdmanager.ipynb 28
+def get_title(doc):
+    p = get_property(doc, key='title'); 
+    if p:
+        o = p.children[0]
+        return o.content
+    return None

@@ -14,13 +14,21 @@ from .mdmanager import ObsidianHTMLRenderer, get_obsidianmd_ast, get_subdirs
 from mistletoe import Document
 import urllib
 from .jupyter import render_nb
-
+from .mdmanager import get_title
 
 # %% ../nbs/00_core.ipynb 5
 def create_app():
     hdrs = Theme.neutral.headers(highlightjs=True)
-    script = Script(src="https://unpkg.com/@superset-ui/embedded-sdk")
-    newhdrs = hdrs  + [script]
+    Mermaid = MermaidJS()
+    Katex = KatexMarkdownJS()
+    D3 = Script(src="https://cdn.jsdelivr.net/npm/d3@7")
+    PyscriptCSS=Link(rel="stylesheet", href="https://pyscript.net/releases/2025.3.1/core.css", type="text/css"),
+    PyscriptJS=Script(src="https://pyscript.net/releases/2025.3.1/core.js", type='module')
+    SurrealGlobalAdd = Script("surreal.globalsAdd());");
+    Plotly = Script(src="https://cdn.plot.ly/plotly-3.0.1.min.js")
+    hdrs = Theme.neutral.headers(highlightjs=True)
+    add_hdrs = [Mermaid, Katex, D3, PyscriptCSS, PyscriptJS, SurrealGlobalAdd, Plotly]
+    newhdrs = hdrs +add_hdrs
     mount_routes = []
 
     app = FastHTML(hdrs=newhdrs, live=True, exts='ws', routes=mount_routes)
@@ -108,11 +116,13 @@ def app_route(request: Request, file: str = ""):
         with ObsidianHTMLRenderer() as renderer:
             doc = get_obsidianmd_ast(text)
             html = renderer.render(doc)
+            title = get_title(doc)
+            
 
         return ifhtmx(
             request,
             Container(
-                H1(file_path.stem, cls='uk-h1 text-4xl font-bold mt-12 mb-6'),
+                H1(title if title else file_path.stem, cls='uk-h1 text-4xl font-bold mt-12 mb-6'),
                 Card(NotStr(apply_classes(html)))
             )
         )
