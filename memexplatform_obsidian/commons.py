@@ -19,6 +19,7 @@ class MountPaths(Enum):
     gradio_url = config.PREFIX + "_gradio"
     open = "/open"
     tag = "/tag"
+    embed="/embed"
 
     def get_mount_name(self):
         return self.value.rsplit("/")[-1]
