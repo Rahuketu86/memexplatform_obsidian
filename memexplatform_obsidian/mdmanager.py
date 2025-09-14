@@ -93,7 +93,7 @@ class ObsidianEmbed(Link):
         self.title_delimiter = None
 
         # Render children as the alias text
-        self.children = [RawText(alias)]
+        self.children = list(span_token.tokenize_inner(alias))
 
 # class ObsidianEmbed(Link):
 #     """
@@ -168,7 +168,8 @@ class ObsidianLink(Link):
         self.label = None
         self.dest_type = "obsidianlink"
         self.title_delimiter = None
-        self.children = [RawText(alias)]
+        # self.children = [RawText(alias)]
+        self.children = list(span_token.tokenize_inner(alias))
 
 # class ObsidianLink(Link):
 #     """
@@ -227,7 +228,8 @@ class WikiLink(Link):
         self.title_delimiter = None
 
         # children: inline text tokens for the alias (like how Link holds link text)
-        self.children = [RawText(self.alias)]
+        # self.children = [RawText(self.alias)]
+        self.children = list(span_token.tokenize_inner(self.alias))
 
 # %% ../nbs/05_mdmanager.ipynb 14
 class AnyLink(span_token.SpanToken):
