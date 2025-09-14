@@ -192,7 +192,7 @@ def embed(request: Request, file: str = "", ext:Optional[str]=None, title:Option
             mime = mimetypes.guess_type(file_path.name, strict=False)
             headers = {"Accept-Ranges": "bytes"}  # Important for seeking
             # return Response(file_path.read_bytes(), headers=headers)
-            return StreamingResponse(iter_file(file_path), media_type=mime[0], headers=headers)
+            return FileResponse(file_path, media_type=mime[0], headers=headers)
 
         # --- Audio files ---
         if ext in AUDIO_EXTS:
@@ -200,7 +200,7 @@ def embed(request: Request, file: str = "", ext:Optional[str]=None, title:Option
             mime = mimetypes.guess_type(file_path.name, strict=False)
             headers = {"Accept-Ranges": "bytes"}  # Important for seeking
             # return Response(file_path.read_bytes(), headers=headers)
-            return StreamingResponse(iter_file(file_path), media_type=mime[0], headers=headers)
+            return FileResponse(file_path, media_type=mime[0], headers=headers)
 
         if file_path.name.lower().endswith(".ipynb"):
             return ifhtmx(
@@ -221,6 +221,6 @@ def embed(request: Request, file: str = "", ext:Optional[str]=None, title:Option
 
         # return Response(html, media_type="text/html")
         return CollapsibleBlocks(
-           Div(title if title else file_path.stem, cls='uk-h1 text-4xl font-bold mt-12 mb-6'), 
+           Div(title if title else file_path.stem), 
            NotStr(apply_classes(html))
         )
