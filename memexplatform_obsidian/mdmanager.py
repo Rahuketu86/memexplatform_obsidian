@@ -27,6 +27,7 @@ from mistletoe.span_tokenizer import tokenize
 from mistletoe.token import Token
 from .commons import MountPaths
 import pathlib
+import mimetypes
 
 
 # %% ../nbs/05_mdmanager.ipynb 5
@@ -397,11 +398,13 @@ class ObsidianAstRenderer(AstRenderer):
         # Just return dict so AST expansion shows structured metadata
         return token.children
 
-# %% ../nbs/05_mdmanager.ipynb 19
+# %% ../nbs/05_mdmanager.ipynb 20
 class ObsidianHTMLRenderer(HTMLRenderer):
 
-    TEXTLIKE_EXTS = [".md", ".qmd", ".canvas", ".base"]
-    IMGLIKE_EXTS = [".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"]
+    VIDEO_EXTS = {".mp4", ".webm", ".ogg", ".mov", ".mkv"}
+    AUDIO_EXTS = {".mp3", ".wav", ".ogg", ".m4a", ".flac"}
+    IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"}
+    TEXTLIKE_EXTS = {".md", ".qmd", ".canvas", ".base"}
 
     def __init__(self, **kwargs):
         super().__init__(Frontmatter, WikiLink, TagLink, AnyLink, ObsidianLink, ObsidianEmbed,  **kwargs)  # register custom tokens
@@ -410,12 +413,48 @@ class ObsidianHTMLRenderer(HTMLRenderer):
         target = token.target
         ext = token.ext
         fname = token.fname
-        if not (ext in self.IMGLIKE_EXTS or ext in self.TEXTLIKE_EXTS):
-            return self.render_image(token)
-        else:
-            if ext in self.IMGLIKE_EXTS:
-                return self.render_image(token)
-            return self.render_link(token)
+        src = token.src
+        alt = token.title or token.children or ""
+        if ext in self.IMAGE_EXTS: return self.render_image(token)
+        if ext in self.TEXTLIKE_EXTS: 
+    
+            # return f'<blockquote data-embed="{src}">{alt}</blockquote>'
+            return (
+            f'<blockquote class="note-embed-placeholder" '
+            f'data-embed-url="{src}" '
+            f'hx-get="{src}" '
+            f'hx-trigger="revealed once" '
+            f'hx-swap="outerHTML">'
+            f'Loading {alt}…'
+            f'</blockquote>'
+        )
+        if ext in self.AUDIO_EXTS:
+            mimetypes.guess_type
+            # mime = f"audio/{ext[1:]}" if ext else "audio/mpeg"
+            mime = mimetypes.guess_type(fname, strict=False)[0]
+            return f'<audio controls><source src="{src}" type="{mime}">Your browser does not support the audio tag.</audio>'
+        if ext in self.VIDEO_EXTS or "youtube.com" in src or "youtu.be" in src or "vimeo.com" in src:
+            if "youtube.com/watch" in src or "youtu.be/" in src:
+                parsed = urllib.parse.urlparse(src)
+                qs = urllib.parse.parse_qs(parsed.query)
+                vid = qs.get("v", [""])[0] if "v" in qs else parsed.path.split("/")[-1]
+                return f'<iframe width="560" height="315" src="https://www.youtube.com/embed/{vid}" frameborder="0" allowfullscreen></iframe>'
+            if "vimeo.com" in src:
+                vid = src.rstrip("/").split("/")[-1]
+                return f'<iframe src="https://player.vimeo.com/video/{vid}" width="640" height="360" frameborder="0" allowfullscreen></iframe>'
+            # mime = f"video/{ext[1:]}" if ext else "video/mp4"
+            mime = mimetypes.guess_type(fname, strict=False)[0]
+            return f'<video controls><source src="{src}" type="{mime}">Your browser does not support the video tag.</video>'
+        return self.render_link(token)
+
+
+
+        # if not (ext in self.IMGLIKE_EXTS or ext in self.TEXTLIKE_EXTS):
+        #     return self.render_image(token)
+        # else:
+            # if ext in self.IMGLIKE_EXTS:
+            #     return self.render_image(token)
+            # return self.render_link(token)
     
     def render_obsidian_link(self, token):
         return self.render_link(token)
@@ -447,7 +486,7 @@ class ObsidianHTMLRenderer(HTMLRenderer):
             + "\n</table>\n</div>"
         )
 
-# %% ../nbs/05_mdmanager.ipynb 21
+# %% ../nbs/05_mdmanager.ipynb 22
 def get_obsidianmd_ast(text):
     # span_token.add_token(Link)       # [text](url)
     # span_token.add_token(AutoLink)   # <http://example.com>
@@ -458,7 +497,7 @@ def get_obsidianmd_ast(text):
     span_token.add_token(TagLink)
     return Document(text)
 
-# %% ../nbs/05_mdmanager.ipynb 27
+# %% ../nbs/05_mdmanager.ipynb 28
 def print_ast(token, indent=0):
     pad = "  " * indent
     data = {k: v for k, v in getattr(token, "__dict__", {}).items() if not k.startswith("_")}
@@ -470,13 +509,13 @@ def print_ast(token, indent=0):
         for child in children:
             print_ast(child, indent + 1)
 
-# %% ../nbs/05_mdmanager.ipynb 28
+# %% ../nbs/05_mdmanager.ipynb 29
 def get_frontmatter(doc):
     for o in doc.children:
         if type(o).__name__ == 'Frontmatter': return o
     return None
 
-# %% ../nbs/05_mdmanager.ipynb 29
+# %% ../nbs/05_mdmanager.ipynb 30
 def get_property(doc, key='title'):
     fm = get_frontmatter(doc)
     if fm:
@@ -484,7 +523,7 @@ def get_property(doc, key='title'):
             if p.key ==key: return p
     return None
 
-# %% ../nbs/05_mdmanager.ipynb 30
+# %% ../nbs/05_mdmanager.ipynb 31
 def get_title(doc):
     p = get_property(doc, key='title'); 
     if p:
