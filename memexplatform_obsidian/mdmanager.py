@@ -316,16 +316,27 @@ class Frontmatter(BlockToken):
     repr_attributes = BlockToken.repr_attributes + ("data",)
 
     # Match `---` followed by anything until the next `---` on its own line
+    # pattern = re.compile(
+    #     r'(?ms)^(?:---)\s*\n(.*?)(?:\n---\s*$)'
+    # )
+
     pattern = re.compile(
-        r'(?ms)^(?:---)\s*\n(.*?)(?:\n---\s*$)'
+        r'(?ms)\A---\s*\n(.*?)(?:\n---\s*\n)'
     )
 
     def __init__(self, content: str):
         self.content = content.strip()
         try:
-            self.data = yaml.safe_load(self.content) or {}
+            parsed = yaml.safe_load(self.content) or {}
         except yaml.YAMLError as e:
-            self.data = {"error": str(e)}
+            parsed = {"error": str(e)}
+
+
+        if isinstance(parsed, dict):
+            self.data = parsed
+        else:
+            # wrap scalars/lists into a dict
+            self.data = {"value": parsed}
         
         # Process the YAML data into children, parsing each value as markdown
         self.children = []
@@ -349,6 +360,8 @@ class Frontmatter(BlockToken):
 
     @classmethod
     def read(cls, lines):
+        if lines.line_number() > 1:
+            return None 
         # Consume first line (`---`)
         next(lines)
         buffer = []

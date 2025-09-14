@@ -16,6 +16,7 @@ import urllib
 from .jupyter import render_nb
 from .mdmanager import get_title
 from typing import Optional
+import pathlib
 
 # %% ../nbs/00_core.ipynb 4
 def create_app():
@@ -81,7 +82,7 @@ def resolve_note_path(vault:Path, file:str) -> Path | None:
 
 # %% ../nbs/00_core.ipynb 9
 @rt
-def open(request: Request, file: str = ""):
+def open(request: Request, file: str = "", title: Optional[str]=None):
     vault_path = config.OBSIDIAN_VAULT
     file_path = resolve_note_path(vault_path, file)
     if file_path is None: return Div(f"Path not found: {urllib.parse.unquote(file)}")
@@ -129,7 +130,7 @@ def open(request: Request, file: str = ""):
 
 # %% ../nbs/00_core.ipynb 10
 @rt
-def embed(request: Request, file: str = "", ext:Optional[str]=None):
+def embed(request: Request, file: str = "", ext:Optional[str]=None, title:Optional[str]=None):
     TEXTLIKE_EXTS = [".md", ".qmd", ".canvas", ".base"]
     IMGLIKE_EXTS = [".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"]
     vault_path = config.OBSIDIAN_VAULT
@@ -152,7 +153,20 @@ def embed(request: Request, file: str = "", ext:Optional[str]=None):
     # If it's a file → show content (assuming text)
     if file_path.is_file():
         if ext in IMGLIKE_EXTS:
-            return Response(file_path.read_bytes(), headers={'Content-Type': f"image/{ext[1:]}"})
+            headers = {'Content-Type': f"image/{ext[1:]}"}
+            
+            # Add alt and title to headers if available/derivable
+            # 'title' is passed as a parameter to the embed function
+            if title:
+                headers['X-Image-Title'] = title
+            
+            # 'alt' is not passed directly to the embed function, so derive it from the file name
+            # This 'alt' would typically be used by the HTML <img> tag that references this image.
+            # Adding it as a custom header here provides it in the response, as per instruction.
+            alt_text = pathlib.Path(file).stem
+            headers['X-Image-Alt'] = alt_text
+            
+            return Response(file_path.read_bytes(), headers=headers)
         else:
             if file_path.name.lower().endswith(".ipynb"):
                 return ifhtmx(
