@@ -5,8 +5,8 @@
 # %% auto 0
 __all__ = ['config', 'CALLOUT_TYPE_MAP', 'CALLOUT_BLOCK_REGEX', 'CALLOUT_FIRST_LINE_REGEX', 'get_subdirs', 'ObsidianEmbed',
            'ObsidianLink', 'WikiLink', 'AnyLink', 'Properties', 'TagLink', 'Frontmatter', 'ObsidianCallout',
-           'ObsidianAstRenderer', 'ObsidianHTMLRenderer', 'get_obsidianmd_ast', 'print_ast', 'get_frontmatter',
-           'get_property', 'get_title']
+           'ObsidianAstRenderer', 'ObsidianHTMLRenderer', 'ObsidianPage', 'get_obsidianmd_ast', 'print_ast',
+           'get_frontmatter', 'get_property', 'get_title']
 
 # %% ../nbs/05_mdmanager.ipynb 3
 from .settings import ObsidianConfig
@@ -30,6 +30,7 @@ from .commons import MountPaths
 from mistletoe.block_tokenizer import tokenize_block
 import pathlib
 import mimetypes
+from typing import Optional
 # from fasthtml.common import *
 # from monsterui.all import *
 
@@ -505,7 +506,7 @@ class ObsidianHTMLRenderer(HTMLRenderer):
         ext = token.ext
         fname = token.fname
         src = token.src
-        alt = token.title or token.children or ""
+        alt = token.title or token.children[0].content or ""
         if ext in self.IMAGE_EXTS: return self.render_image(token)
         if ext in self.TEXTLIKE_EXTS: 
     
@@ -611,6 +612,56 @@ class ObsidianHTMLRenderer(HTMLRenderer):
 
 
 # %% ../nbs/05_mdmanager.ipynb 23
+class ObsidianPage(object):
+
+    def __init__(self, text):
+        self._text = text
+
+    @property
+    def doc(self):
+        span_token.add_token(ObsidianEmbed)
+        span_token.add_token(ObsidianLink)
+        span_token.add_token(WikiLink)
+        block_token.add_token(Frontmatter)
+        block_token.add_token(ObsidianCallout)
+        span_token.add_token(TagLink)
+        return Document(self._text)
+
+    @property
+    def frontmatter(self)->Optional[Frontmatter]:
+        for o in self.doc.children:
+            if type(o).__name__ == 'Frontmatter': return o
+        return None
+
+    def get_property(self, key='title'):
+        if self.frontmatter:
+            for p in self.frontmatter.children:
+                if p.key == key: return p
+        return None
+
+    @property
+    def title(self):
+        p = self.get_property('title'); 
+        if p:
+            o = p.children[0]
+            return o.content
+        return None
+
+    @property
+    def html(self):
+        with ObsidianHTMLRenderer() as renderer:
+            # html = renderer.render(Document(lines))
+            html = renderer.render(self.doc)
+        return html
+
+    @property
+    def ast(self):
+        with ObsidianAstRenderer() as renderer:
+            # html = renderer.render(Document(lines))
+            html = renderer.render(self.doc)
+        return html
+
+# %% ../nbs/05_mdmanager.ipynb 25
 def get_obsidianmd_ast(text):
     # span_token.add_token(Link)       # [text](url)
     # span_token.add_token(AutoLink)   # <http://example.com>
@@ -622,7 +673,7 @@ def get_obsidianmd_ast(text):
     span_token.add_token(TagLink)
     return Document(text)
 
-# %% ../nbs/05_mdmanager.ipynb 30
+# %% ../nbs/05_mdmanager.ipynb 32
 def print_ast(token, indent=0):
     pad = "  " * indent
     data = {k: v for k, v in getattr(token, "__dict__", {}).items() if not k.startswith("_")}
@@ -634,13 +685,13 @@ def print_ast(token, indent=0):
         for child in children:
             print_ast(child, indent + 1)
 
-# %% ../nbs/05_mdmanager.ipynb 31
+# %% ../nbs/05_mdmanager.ipynb 33
 def get_frontmatter(doc):
     for o in doc.children:
         if type(o).__name__ == 'Frontmatter': return o
     return None
 
-# %% ../nbs/05_mdmanager.ipynb 32
+# %% ../nbs/05_mdmanager.ipynb 34
 def get_property(doc, key='title'):
     fm = get_frontmatter(doc)
     if fm:
@@ -648,7 +699,7 @@ def get_property(doc, key='title'):
             if p.key ==key: return p
     return None
 
-# %% ../nbs/05_mdmanager.ipynb 33
+# %% ../nbs/05_mdmanager.ipynb 35
 def get_title(doc):
     p = get_property(doc, key='title'); 
     if p:
