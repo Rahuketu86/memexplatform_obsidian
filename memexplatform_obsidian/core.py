@@ -144,7 +144,9 @@ def CollapsibleBlocks(title, comp):
             cls='collapse collapse-plus border'
         )
 
-# %% ../nbs/00_core.ipynb 14
+        
+
+# %% ../nbs/00_core.ipynb 15
 @rt
 def embed(request: Request, file: str = "", ext:Optional[str]=None, title:Optional[str]=None):
     VIDEO_EXTS = {".mp4", ".webm", ".ogg", ".mov", ".mkv"}
