@@ -20,6 +20,8 @@ class MountPaths(Enum):
     open = "/open"
     tag = "/tag"
     embed="/embed"
+    obsidian_url = "obsidian://open"
+    edit = "/edit"
 
     def get_mount_name(self):
         return self.value.rsplit("/")[-1]
@@ -30,3 +32,7 @@ class MountPaths(Enum):
     def to(self, **kwargs):
         if kwargs: return self.get_app_url().rstrip("/")+"?"+"&".join([ f"{k}={urllib.parse.quote(str(v))}" for k,v in kwargs.items()])
         else: return self.get_app_url()
+
+    def with_qparams(self, **kwargs):
+        if kwargs: return self.value.rstrip("/")+"?"+"&".join([ f"{k}={urllib.parse.quote(str(v))}" for k,v in kwargs.items()])
+        else: return self.value
