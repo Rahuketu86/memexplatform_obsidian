@@ -214,6 +214,7 @@ class AnyLink(span_token.SpanToken):
     # Must capture the whole URL in group 1
     pattern = re.compile(r'(?<![\]\)"])(([a-zA-Z][a-zA-Z0-9+.-]*://[^\s]+))')
     parse_group = 1
+    repr_attributes = ("title", "target", "children")
 
     def __init__(self, match):
         url = match.group(1)
@@ -647,6 +648,19 @@ class ObsidianPage(object):
             for p in self.frontmatter.children:
                 if p.key == key: return p
         return None
+
+    @property
+    def links(self):
+        def get_links(root):
+            result = []
+            if hasattr(root, 'children') and not isinstance(root, span_token.SpanToken) and root.children is not None:
+                for c in root.children:
+                    if isinstance(c, (Link, AnyLink)):
+                        result.append(c)
+                    elif hasattr(c, 'children'):
+                        result.extend(get_links(c))
+            return result
+        return get_links(self.doc)
 
     @property
     def title(self):
