@@ -10,16 +10,14 @@ from fasthtml.common import *
 from monsterui.all import *
 from .commons import config, MountPaths
 from memexplatform.ui.structure import ifhtmx
-from .mdmanager import ObsidianHTMLRenderer, get_obsidianmd_ast, get_subdirs, resolve_note_path
+from .mdmanager import ObsidianHTMLRenderer, get_subdirs, resolve_note_path
 from mistletoe import Document
 import urllib
 from .jupyter import render_nb
-from .mdmanager import get_title
 from typing import Optional
 import pathlib
-import mimetypes
 from pathlib import Path
-from .mdmanager import ObsidianPage
+from .mdmanager import ObsidianPage, guess_mime
 
 # %% ../nbs/00_core.ipynb 5
 def create_app():
@@ -139,6 +137,7 @@ def embed(request: Request, file: str = "", ext:Optional[str]=None, title:Option
     TEXTLIKE_EXTS = {".md", ".qmd", ".canvas", ".base"}
     vault_path = config.OBSIDIAN_VAULT
     file_path = resolve_note_path(vault_path, file)
+    print("Z1")
     if file_path is None: return Div(f"Path not found: {urllib.parse.unquote(file)}")
 
     # If it's a directory → list contents
@@ -156,6 +155,7 @@ def embed(request: Request, file: str = "", ext:Optional[str]=None, title:Option
         )
     # If it's a file → show content (assuming text)
     if file_path.is_file():
+        print("Z2")
         if ext in IMAGE_EXTS:
             headers = {'Content-Type': f"image/{ext[1:]}"}
             
@@ -175,18 +175,22 @@ def embed(request: Request, file: str = "", ext:Optional[str]=None, title:Option
         # --- Video files ---
         if ext in VIDEO_EXTS:
             # mime = f"video/{ext[1:]}" if ext else "video/mp4"
-            mime = mimetypes.guess_type(file_path.name, strict=False)
+            # mime = mimetypes.guess_type(file_path.name, strict=False)
+            mime = guess_mime(file_path.name)
+            print(mime)
             headers = {"Accept-Ranges": "bytes"}  # Important for seeking
             # return Response(file_path.read_bytes(), headers=headers)
-            return FileResponse(file_path, media_type=mime[0], headers=headers)
+            return FileResponse(file_path, media_type=mime, headers=headers, filename=file_path.name)
 
         # --- Audio files ---
         if ext in AUDIO_EXTS:
             # mime = f"audio/{ext[1:]}" if ext else "audio/mpeg"
-            mime = mimetypes.guess_type(file_path.name, strict=False)
+            # mime = mimetypes.guess_type(file_path.name, strict=False)
+            mime = guess_mime(file_path.name)
             headers = {"Accept-Ranges": "bytes"}  # Important for seeking
             # return Response(file_path.read_bytes(), headers=headers)
-            return FileResponse(file_path, media_type=mime[0], headers=headers)
+            print(mime)
+            return FileResponse(file_path, media_type=mime, headers=headers, filename=file_path.name)
 
         if file_path.name.lower().endswith(".ipynb"):
             return ifhtmx(
@@ -196,17 +200,7 @@ def embed(request: Request, file: str = "", ext:Optional[str]=None, title:Option
                         render_nb(file_path)
                 ))
         op = ObsidianPage.from_file_path(file_path)
-        # try:
-        #     text = file_path.read_text(encoding="utf-8")
-        # except Exception:
-        #     text = "[Unable to read file]"
-
-        # with ObsidianHTMLRenderer() as renderer:
-        #     doc = get_obsidianmd_ast(text)
-        #     html = renderer.render(doc)
-        #     title = get_title(doc)
-
-        # return Response(html, media_type="text/html")
+        print("Heeeo")
         return CollapsibleBlocks(
            Div(op.title), 
            NotStr(apply_classes(op.html))
