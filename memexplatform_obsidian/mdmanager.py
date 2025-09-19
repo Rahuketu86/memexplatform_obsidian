@@ -704,7 +704,7 @@ class ObsidianPage(object):
 
     @property
     def parent(self):
-        return self._fpath.parent.relative_to(config.OBSIDIAN_VAULT)
+        return self._fpath.parent.name
         
     def get_property(self, key='title'):
         if self.frontmatter:

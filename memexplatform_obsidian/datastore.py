@@ -16,7 +16,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from .mdmanager import ObsidianPage, resolve_note_path, Link, RawText, AnyLink, TagLink, get_subdirs
 import uuid
-from .commons import MountPaths
+from .commons import MountPaths, ResponseTypes
 from abc import ABC, ABCMeta, abstractmethod
 import urllib
 from .jupyter import render_nb
@@ -101,7 +101,7 @@ def update_node(page, file_path):
         file_size=file_size_val,
         fname=file_path.name,
         parent=str(page.parent),
-        title = page.title,
+        # title = page.title,
         text=node_text_content,
         blob=node_blob_content,
         ext=node_ext,
@@ -289,27 +289,50 @@ class FileStore(NoteStore):
                 content = render_nb(pfname)
                 obsidian_url = None
                 title = pfname.stem
+                lockey = pfname.relative_to(self.vault)
+                extension = op.file_extension
+                response_type=ResponseTypes.html
+            elif pfname.name.endswith(AUDIO_EXTS+VIDEO_EXTS+IMAGE_EXTS):
+                op = ObsidianPage.from_file_path(pfname)
+                content = pfname # pfname.read_bytes()
+                obsidian_url = op.obsidian_url
+                title = op.title
+                lockey = op.lockey
+                extension = op.file_extension
+                response_type=ResponseTypes.file
             else:
                 op = ObsidianPage.from_file_path(pfname)
                 content = op.html
                 obsidian_url = op.obsidian_url
                 title = op.title
+                lockey = op.lockey
+                extension = op.file_extension
+                response_type=ResponseTypes.html
             return {'content': content, 
                     'obsidian_url': obsidian_url, 
                     'is_folder': is_folder, 
-                    'title': title }
+                    'title': title,
+                    'lockey': lockey,
+                    'extension': extension,
+                    'response_type':response_type }
         else: 
             lsfldr = self.vault/search_term
             if lsfldr.is_dir(): 
                 return {'content': self.listing(lsfldr), 
                         'obsidian_url': None, 
                         'is_folder': True, 
-                        'title': search_term }
+                        'title': search_term,
+                        'lockey': search_term,
+                        'extension': None,
+                        'response_type':ResponseTypes.pygen } 
             else: 
                 return {'content': None, 
                     'obsidian_url': None, 
                     'is_folder': is_folder, 
-                    'title': None }
+                    'title': None,
+                    'lockey': None,
+                    'extension': None,
+                    'response_type':ResponseTypes.html }
 
 # %% ../nbs/07_datastore.ipynb 18
 class DBStore(NoteStore):
@@ -351,9 +374,9 @@ class DBStore(NoteStore):
         data = None
         out = None
         # print(search_term)
-        if fname.endswith(extensions):
+        if fname.endswith(TEXTLIKE_EXTS):
             
-            data_list = list(self.db['node'].rows_where("fname = ?", (str(fname),), select='fname, url, obsidian_url, is_folder, text'))
+            data_list = list(self.db['node'].rows_where("fname = ?", (str(fname),), select='fname, url, obsidian_url, is_folder, text, ext, lockey'))
             if data_list:
                 # print("1")
                 data = data_list[0]
@@ -361,31 +384,60 @@ class DBStore(NoteStore):
                 op = ObsidianPage(data['text'])
                 # print(op.html)
                 out = {'content': op.html, 
-                                'obsidian_url': data['obsidian_url'], 
-                                'is_folder': data['is_folder']>0, 
-                                'title': op.title }
+                       'obsidian_url': data['obsidian_url'], 
+                       'is_folder': data['is_folder']>0, 
+                       'title': op.title if op.title else pathlib.Path(fname).stem,
+                       'lockey': data['lockey'],
+                       'extension': data['ext'],
+                       'response_type':ResponseTypes.html }
+        
+        elif fname.endswith(VIDEO_EXTS+AUDIO_EXTS+IMAGE_EXTS):
+            
+            data_list = list(self.db['node'].rows_where("fname = ?", (str(fname),), select='fname, url, obsidian_url, is_folder, text, blob, ext, lockey'))
+            if data_list:
+                # print("1")
+                data = data_list[0]
+                # print(data)
+                op = ObsidianPage(data['text'])
+                # print(op.html)
+                out = {'content': data['blob'], 
+                       'obsidian_url': data['obsidian_url'], 
+                       'is_folder': data['is_folder']>0, 
+                       'title': op.title if op.title else pathlib.Path(fname).stem,
+                       'lockey': data['lockey'],
+                       'extension': data['ext'],
+                       'response_type':ResponseTypes.blob }
         else:
-            data_list = list(self.db['node'].rows_where("fname = ?", (str(fname+".md"),), select='fname, url, obsidian_url, is_folder, text'))
+            data_list = list(self.db['node'].rows_where("fname = ?", (str(fname+".md"),), select='fname, url, obsidian_url, is_folder, text, ext, lockey'))
             if data_list:
                 data = data_list[0]
                 op = ObsidianPage(data['text'])
                 out = {'content': op.html, 
-                                'obsidian_url': data['obsidian_url'], 
-                                'is_folder': data['is_folder']>0, 
-                                'title': op.title }
+                       'obsidian_url': data['obsidian_url'], 
+                       'is_folder': data['is_folder']>0, 
+                       'title': op.title if op.title else pathlib.Path(fname).stem,
+                       'lockey': data['lockey'],
+                       'extension': data['ext'],
+                       'response_type':ResponseTypes.html }
             else:
-                data_list = list(self.db['node'].rows_where("fname = ?", (str(fname),), select='fname, url, obsidian_url, is_folder, text'))
+                data_list = list(self.db['node'].rows_where("fname = ?", (str(fname),), select='fname, url, obsidian_url, is_folder, text, ext, lockey'))
                 if data_list and data_list[0]['is_folder']:
                     data = data_list[0]
                     out = {'content': self.listing(fname),  # Fix this
-                        'obsidian_url': data['obsidian_url'], 
-                        'is_folder': data['is_folder']>0, 
-                        'title': data['fname'] }
+                           'obsidian_url': data['obsidian_url'], 
+                           'is_folder': data['is_folder']>0, 
+                           'title': data['fname'],
+                           'lockey': data['lockey'],
+                           'extension': data['ext'],
+                           'response_type':ResponseTypes.pygen }
                 else: 
                     out = {'content': None, 
-                        'obsidian_url': None, 
-                        'is_folder': False, 
-                        'title': None }
+                           'obsidian_url': None, 
+                           'is_folder': False, 
+                           'title': None,
+                           'lockey': None,
+                           'extension': None,
+                           'response_type':ResponseTypes.html }
         return out
 
     def upsert(self, file_path: Path): # Assuming Path is available from pathlib
