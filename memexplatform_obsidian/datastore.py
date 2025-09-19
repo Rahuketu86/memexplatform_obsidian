@@ -4,7 +4,7 @@
 
 # %% auto 0
 __all__ = ['Node', 'Links', 'Properties', 'update_node', 'get_properties', 'get_pagelinks', 'update_folder_node', 'iter_files',
-           'ObsidianDB']
+           'NoteStore', 'FileStore', 'DBStore']
 
 # %% ../nbs/07_datastore.ipynb 3
 from dataclasses import dataclass
@@ -17,6 +17,9 @@ from datetime import datetime, timezone
 from .mdmanager import ObsidianPage, resolve_note_path, Link, RawText, AnyLink, TagLink, get_subdirs
 import uuid
 from .commons import MountPaths
+from abc import ABC, ABCMeta, abstractmethod
+import urllib
+from .jupyter import render_nb
 
 # %% ../nbs/07_datastore.ipynb 4
 @dataclass
@@ -26,6 +29,7 @@ class Node:
     modified_time: float
     file_size: int
     fname: str
+    parent: str
     text: str
     blob: bytes
     ext: str
@@ -96,6 +100,8 @@ def update_node(page, file_path):
         modified_time=modified_time_ts,
         file_size=file_size_val,
         fname=file_path.name,
+        parent=str(page.parent),
+        title = page.title,
         text=node_text_content,
         blob=node_blob_content,
         ext=node_ext,
@@ -177,7 +183,7 @@ def get_pagelinks(page:ObsidianPage, vault:Path):
     return link_rows
 
 # %% ../nbs/07_datastore.ipynb 10
-def update_folder_node(folder_path: Path) -> Node:
+def update_folder_node(folder_path: Path, vault:Path) -> Node:
     """Create a Node entry for a folder."""
     try:
         s = folder_path.stat()
@@ -187,16 +193,17 @@ def update_folder_node(folder_path: Path) -> Node:
         created_time, modified_time = 0.0, 0.0
 
     return Node(
-        lockey=str(folder_path.relative_to(config.OBSIDIAN_VAULT)),
+        lockey=str(folder_path.relative_to(vault)),
         created_time=created_time,
         modified_time=modified_time,
         file_size=0,
         fname=folder_path.name,
+        parent=str(folder_path.parent.relative_to(vault)),
         text="",
         blob=b"",
         ext="",
         is_folder=True,
-        url=MountPaths.open.to(file=folder_path.relative_to(config.OBSIDIAN_VAULT)),
+        url=MountPaths.open.to(file=folder_path.relative_to(vault)),
         obsidian_url=None,
         checksum=b"",
     )
@@ -207,8 +214,106 @@ def iter_files(dirs):
         yield from (f for f in d.rglob("*") if f.is_file())
 
 
-# %% ../nbs/07_datastore.ipynb 13
-class ObsidianDB:
+# %% ../nbs/07_datastore.ipynb 12
+class NoteStore(ABC):
+    @property
+    @abstractmethod
+    def subdirs(self):
+        ...
+
+    @abstractmethod
+    def listing(self, folder): 
+        ...
+    @abstractmethod
+    def query_file(self, file)->(Path,bool):
+        ...
+
+    
+
+# %% ../nbs/07_datastore.ipynb 14
+class FileStore(NoteStore):
+
+    def __init__(self, config):
+        self.config = config
+        self.vault = config.OBSIDIAN_VAULT
+
+    @property
+    def subdirs(self)->List[Path|str]:
+        subdirs = []
+        for p in self.vault.rglob("*"):
+            if p.is_dir():
+                # Check if any parent directory (including self) should be skipped
+                if any(part.startswith((".", "_")) or part.startswith("logseq") for part in p.parts): continue
+                subdirs.append(p)
+        return subdirs
+
+    def listing(self, folder):
+        for f in iter_files([folder]):
+            name = f.name
+            rel_path = f.relative_to(self.vault)
+            href = MountPaths.open.to(file=rel_path)
+            yield {'fname': name, 'url': href}
+
+    def query_file(self, file) -> Dict: # returns fullpath, is_folder
+        VIDEO_EXTS = (".mp4", ".webm", ".ogg", ".mov", ".mkv")
+        AUDIO_EXTS = (".mp3", ".wav", ".ogg", ".m4a", ".flac")
+        IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp")
+        TEXTLIKE_EXTS = (".md", ".qmd", ".canvas", ".base")
+        search_term = urllib.parse.unquote(file); search_term
+        rel_path = Path(search_term); rel_path
+        fname = rel_path.name
+        fldr = rel_path.parent; fldr
+        pfname = None
+        is_folder = False
+
+        extensions = VIDEO_EXTS+AUDIO_EXTS+IMAGE_EXTS+TEXTLIKE_EXTS
+        if fldr.name == "":
+            if fname.endswith(extensions):
+                for sub in self.subdirs:
+                    pfname = next(sub.rglob(fname), None)
+                    if pfname: break
+            else:
+                mdfname = fname +".md"
+                for sub in self.subdirs:
+                    pfname = next(sub.rglob(mdfname), None)
+                    if pfname: break
+        else:
+            if fname.endswith(extensions):
+                pfname = next((self.vault/fldr).rglob(fname), None)
+            else:
+                mdfname = fname +".md"
+                pfname = next((self.vault/fldr).rglob(mdfname), None)
+        content = None
+        if pfname: 
+            if pfname.name.endswith(".ipynb"): 
+                content = render_nb(pfname)
+                obsidian_url = None
+                title = pfname.stem
+            else:
+                op = ObsidianPage.from_file_path(pfname)
+                content = op.html
+                obsidian_url = op.obsidian_url
+                title = op.title
+            return {'content': content, 
+                    'obsidian_url': obsidian_url, 
+                    'is_folder': is_folder, 
+                    'title': title }
+        else: 
+            lsfldr = self.vault/search_term
+            if lsfldr.is_dir(): 
+                return {'content': self.listing(lsfldr), 
+                        'obsidian_url': None, 
+                        'is_folder': True, 
+                        'title': search_term }
+            else: 
+                return {'content': None, 
+                    'obsidian_url': None, 
+                    'is_folder': is_folder, 
+                    'title': None }
+
+# %% ../nbs/07_datastore.ipynb 18
+class DBStore(NoteStore):
+
     def __init__(self, config):
         self.config = config
         self.db = Database(config.OBSIDIAN_DB); self.db
@@ -224,6 +329,64 @@ class ObsidianDB:
             ('lockey', 'node')
         ])
         return self.db
+
+    @property
+    def subdirs(self):
+        return list(self.vault/d['lockey'] for d in self.db['node'].rows_where("is_folder = ?", (1,), select='lockey'))
+
+    def listing(self, folder):
+        yield from (d for d in self.db['node'].rows_where("parent = ?", (str(folder),), select='fname, url'))
+
+
+    def query_file(self, file):
+        VIDEO_EXTS = (".mp4", ".webm", ".ogg", ".mov", ".mkv")
+        AUDIO_EXTS = (".mp3", ".wav", ".ogg", ".m4a", ".flac")
+        IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp")
+        TEXTLIKE_EXTS = (".md", ".qmd", ".canvas", ".base")
+        search_term = urllib.parse.unquote(file); search_term
+        rel_path = Path(search_term); rel_path
+        fname = rel_path.name
+        fldr = rel_path.parent; fldr
+        extensions = VIDEO_EXTS+AUDIO_EXTS+IMAGE_EXTS+TEXTLIKE_EXTS
+        data = None
+        out = None
+        # print(search_term)
+        if fname.endswith(extensions):
+            
+            data_list = list(self.db['node'].rows_where("fname = ?", (str(fname),), select='fname, url, obsidian_url, is_folder, text'))
+            if data_list:
+                # print("1")
+                data = data_list[0]
+                # print(data)
+                op = ObsidianPage(data['text'])
+                # print(op.html)
+                out = {'content': op.html, 
+                                'obsidian_url': data['obsidian_url'], 
+                                'is_folder': data['is_folder']>0, 
+                                'title': op.title }
+        else:
+            data_list = list(self.db['node'].rows_where("fname = ?", (str(fname+".md"),), select='fname, url, obsidian_url, is_folder, text'))
+            if data_list:
+                data = data_list[0]
+                op = ObsidianPage(data['text'])
+                out = {'content': op.html, 
+                                'obsidian_url': data['obsidian_url'], 
+                                'is_folder': data['is_folder']>0, 
+                                'title': op.title }
+            else:
+                data_list = list(self.db['node'].rows_where("fname = ?", (str(fname),), select='fname, url, obsidian_url, is_folder, text'))
+                if data_list and data_list[0]['is_folder']:
+                    data = data_list[0]
+                    out = {'content': self.listing(fname),  # Fix this
+                        'obsidian_url': data['obsidian_url'], 
+                        'is_folder': data['is_folder']>0, 
+                        'title': data['fname'] }
+                else: 
+                    out = {'content': None, 
+                        'obsidian_url': None, 
+                        'is_folder': False, 
+                        'title': None }
+        return out
 
     def upsert(self, file_path: Path): # Assuming Path is available from pathlib
         # Assuming ObsidianPage, datetime, and timezone are available in the scope.
@@ -253,13 +416,14 @@ class ObsidianDB:
         self.db["properties"].insert_all(get_properties(page))
 
     def sync_vault(self, reindex=False):
-        dirs = get_subdirs(self.vault); dirs
-        for d in dirs: self.db['node'].upsert(update_folder_node(d))
+        fstore = FileStore(self.config)
+        dirs = fstore.subdirs; dirs
+        for d in dirs: self.db['node'].upsert(update_folder_node(d, fstore.vault))
         for f in iter_files(dirs): 
             # check for entry and metadata
             if reindex: self.upsert(f)
             
-            lockey = str(f.relative_to(config.OBSIDIAN_VAULT)); lockey
+            lockey = str(f.relative_to(fstore.vault)); lockey
             # print(lockey)
             # print(list(self.db['node'].rows_where("lockey = ?", (lockey,), select='lockey,modified_time,file_size,checksum'))[0])
             infos = list(self.db['node'].rows_where("lockey = ?", (lockey,), select='lockey,modified_time,file_size,checksum'))

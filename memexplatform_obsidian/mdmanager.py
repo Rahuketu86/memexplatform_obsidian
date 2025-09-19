@@ -702,6 +702,10 @@ class ObsidianPage(object):
             if type(o).__name__ == 'Frontmatter': return o
         return None
 
+    @property
+    def parent(self):
+        return self._fpath.parent.relative_to(config.OBSIDIAN_VAULT)
+        
     def get_property(self, key='title'):
         if self.frontmatter:
             for p in self.frontmatter.children:

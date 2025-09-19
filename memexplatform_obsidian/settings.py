@@ -24,3 +24,4 @@ class ObsidianConfig(BaseSettings):
     PREFIX: str = "/obsidian"
     OBSIDIAN_VAULT: DirectoryPath
     OBSIDIAN_DB:FilePath|NewPath
+    ENABLE_DB_MODE:bool = False
