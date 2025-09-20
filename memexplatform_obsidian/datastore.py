@@ -10,16 +10,16 @@ __all__ = ['Node', 'Links', 'Properties', 'update_node', 'get_properties', 'get_
 from dataclasses import dataclass
 from typing import List, Dict, Optional
 from fastlite import Database, diagram
-from .commons import config
+from .commons import config, ExtensionTypes
 import pathlib
 from pathlib import Path
 from datetime import datetime, timezone
-from .mdmanager import ObsidianPage, resolve_note_path, Link, RawText, AnyLink, TagLink, get_subdirs
+from .mdmanager import ObsidianPage,  Link, RawText, AnyLink, TagLink, get_subdirs, resolve_note_path
 import uuid
 from .commons import MountPaths, ResponseTypes
 from abc import ABC, ABCMeta, abstractmethod
 import urllib
-from .jupyter import render_nb
+from .jupyter import JupyterPage
 
 # %% ../nbs/07_datastore.ipynb 4
 @dataclass
@@ -255,10 +255,10 @@ class FileStore(NoteStore):
             yield {'fname': name, 'url': href}
 
     def query_file(self, file) -> Dict: # returns fullpath, is_folder
-        VIDEO_EXTS = (".mp4", ".webm", ".ogg", ".mov", ".mkv")
-        AUDIO_EXTS = (".mp3", ".wav", ".ogg", ".m4a", ".flac")
-        IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp")
-        TEXTLIKE_EXTS = (".md", ".qmd", ".canvas", ".base")
+        # VIDEO_EXTS = (".mp4", ".webm", ".ogg", ".mov", ".mkv")
+        # AUDIO_EXTS = (".mp3", ".wav", ".ogg", ".m4a", ".flac")
+        # IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp")
+        # TEXTLIKE_EXTS = (".md", ".qmd", ".canvas", ".base")
         search_term = urllib.parse.unquote(file); search_term
         rel_path = Path(search_term); rel_path
         fname = rel_path.name
@@ -266,7 +266,7 @@ class FileStore(NoteStore):
         pfname = None
         is_folder = False
 
-        extensions = VIDEO_EXTS+AUDIO_EXTS+IMAGE_EXTS+TEXTLIKE_EXTS
+        extensions = ExtensionTypes.all()
         if fldr.name == "":
             if fname.endswith(extensions):
                 for sub in self.subdirs:
@@ -286,10 +286,11 @@ class FileStore(NoteStore):
         content = None
         if pfname: 
             if pfname.name.endswith(".ipynb"): 
-                content = render_nb(pfname)
-                obsidian_url = None
-                title = pfname.stem
-                lockey = pfname.relative_to(self.vault)
+                op = JupyterPage.from_file_path(pfname)
+                content = op.html
+                obsidian_url = op.obsidian_url
+                title = op.title
+                lockey = op.lockey
                 extension = op.file_extension
                 response_type=ResponseTypes.html
             elif pfname.name.endswith(AUDIO_EXTS+VIDEO_EXTS+IMAGE_EXTS):
@@ -334,7 +335,7 @@ class FileStore(NoteStore):
                     'extension': None,
                     'response_type':ResponseTypes.html }
 
-# %% ../nbs/07_datastore.ipynb 18
+# %% ../nbs/07_datastore.ipynb 17
 class DBStore(NoteStore):
 
     def __init__(self, config):
@@ -362,26 +363,29 @@ class DBStore(NoteStore):
 
 
     def query_file(self, file):
-        VIDEO_EXTS = (".mp4", ".webm", ".ogg", ".mov", ".mkv")
-        AUDIO_EXTS = (".mp3", ".wav", ".ogg", ".m4a", ".flac")
-        IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp")
-        TEXTLIKE_EXTS = (".md", ".qmd", ".canvas", ".base")
+        # VIDEO_EXTS = (".mp4", ".webm", ".ogg", ".mov", ".mkv")
+        # AUDIO_EXTS = (".mp3", ".wav", ".ogg", ".m4a", ".flac")
+        # IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp")
+        # TEXTLIKE_EXTS = (".md", ".qmd", ".canvas", ".base", ".ipynb")
         search_term = urllib.parse.unquote(file); search_term
         rel_path = Path(search_term); rel_path
         fname = rel_path.name
         fldr = rel_path.parent; fldr
-        extensions = VIDEO_EXTS+AUDIO_EXTS+IMAGE_EXTS+TEXTLIKE_EXTS
+        extensions = ExtensionTypes.all()
         data = None
         out = None
         # print(search_term)
-        if fname.endswith(TEXTLIKE_EXTS):
+        if fname.endswith(ExtensionTypes.TEXTLIKE_EXTS):
             
             data_list = list(self.db['node'].rows_where("fname = ?", (str(fname),), select='fname, url, obsidian_url, is_folder, text, ext, lockey'))
             if data_list:
                 # print("1")
                 data = data_list[0]
                 # print(data)
-                op = ObsidianPage(data['text'])
+                op = JupyterPage(data['text'], fpath=fname) if fname.endswith(".ipynb") else ObsidianPage(data['text']) 
+                # html = None
+                # : html = render_nb(op.text)
+                # else: html = op.html
                 # print(op.html)
                 out = {'content': op.html, 
                        'obsidian_url': data['obsidian_url'], 
@@ -391,7 +395,7 @@ class DBStore(NoteStore):
                        'extension': data['ext'],
                        'response_type':ResponseTypes.html }
         
-        elif fname.endswith(VIDEO_EXTS+AUDIO_EXTS+IMAGE_EXTS):
+        elif fname.endswith(ExtensionTypes.VIDEO_EXTS+ExtensionTypes.AUDIO_EXTS+ExtensionTypes.IMAGE_EXTS):
             
             data_list = list(self.db['node'].rows_where("fname = ?", (str(fname),), select='fname, url, obsidian_url, is_folder, text, blob, ext, lockey'))
             if data_list:

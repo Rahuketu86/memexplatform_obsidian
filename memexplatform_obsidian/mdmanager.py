@@ -10,6 +10,7 @@ __all__ = ['EXT_MIME_OVERRIDES', 'config', 'CALLOUT_TYPE_MAP', 'CALLOUT_BLOCK_RE
 
 # %% ../nbs/05_mdmanager.ipynb 3
 from .settings import ObsidianConfig
+from .commons import ExtensionTypes, Page
 from enum import Enum
 import urllib
 import mistletoe
@@ -494,10 +495,10 @@ class ObsidianAstRenderer(AstRenderer):
 # %% ../nbs/05_mdmanager.ipynb 21
 class ObsidianHTMLRenderer(HTMLRenderer):
 
-    VIDEO_EXTS = {".mp4", ".webm", ".ogg", ".mov", ".mkv"}
-    AUDIO_EXTS = {".mp3", ".wav", ".ogg", ".m4a", ".flac"}
-    IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"}
-    TEXTLIKE_EXTS = {".md", ".qmd", ".canvas", ".base"}
+    # VIDEO_EXTS = {".mp4", ".webm", ".ogg", ".mov", ".mkv"}
+    # AUDIO_EXTS = {".mp3", ".wav", ".ogg", ".m4a", ".flac"}
+    # IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"}
+    # TEXTLIKE_EXTS = {".md", ".qmd", ".canvas", ".base"}
 
     def __init__(self, **kwargs):
         super().__init__(Frontmatter, WikiLink, TagLink, AnyLink, ObsidianLink, ObsidianEmbed, ObsidianCallout,  **kwargs)  # register custom tokens
@@ -508,8 +509,8 @@ class ObsidianHTMLRenderer(HTMLRenderer):
         fname = token.fname
         src = token.src
         alt = token.title or "" or (token.children[0].content if token.children else "")
-        if ext in self.IMAGE_EXTS: return self.render_image(token)
-        if ext in self.TEXTLIKE_EXTS: 
+        if ext in ExtensionTypes.IMAGE_EXTS: return self.render_image(token)
+        if ext in ExtensionTypes.TEXTLIKE_EXTS: 
     
             # return f'<blockquote data-embed="{src}">{alt}</blockquote>'
             return (
@@ -521,13 +522,13 @@ class ObsidianHTMLRenderer(HTMLRenderer):
             f'Loading {alt}…'
             f'</blockquote>'
         )
-        if ext in self.AUDIO_EXTS:
+        if ext in ExtensionTypes.AUDIO_EXTS:
             mimetypes.guess_type
             # mime = f"audio/{ext[1:]}" if ext else "audio/mpeg"
             # mime = mimetypes.guess_type(fname, strict=False)[0]
             mime = guess_mime(fname)
             return f'<audio controls><source src="{src}" type="{mime}">Your browser does not support the audio tag.</audio>'
-        if ext in self.VIDEO_EXTS or "youtube.com" in src or "youtu.be" in src or "vimeo.com" in src:
+        if ext in ExtensionTypes.VIDEO_EXTS or "youtube.com" in src or "youtu.be" in src or "vimeo.com" in src:
             if "youtube.com/watch" in src or "youtu.be/" in src:
                 parsed = urllib.parse.urlparse(src)
                 qs = urllib.parse.parse_qs(parsed.query)
@@ -616,12 +617,12 @@ def get_links(root, link_types=(Link, AnyLink)):
                 result.extend(get_links(c, link_types=link_types))
     return result
     
-class ObsidianPage(object):
+class ObsidianPage(Page):
 
-    VIDEO_EXTS = [".mp4", ".webm", ".ogg", ".mov", ".mkv"]
-    AUDIO_EXTS = [".mp3", ".wav", ".ogg", ".m4a", ".flac"]
-    IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"]
-    TEXTLIKE_EXTS = [".md", ".qmd", ".canvas", ".base", '.ipynb']
+    # VIDEO_EXTS = [".mp4", ".webm", ".ogg", ".mov", ".mkv"]
+    # AUDIO_EXTS = [".mp3", ".wav", ".ogg", ".m4a", ".flac"]
+    # IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"]
+    # TEXTLIKE_EXTS = [".md", ".qmd", ".canvas", ".base", '.ipynb']
 
     def __init__(self, text, fpath=None, created_time=None, modified_time=None, file_size=None):
         self._text = text
@@ -633,12 +634,12 @@ class ObsidianPage(object):
         self.file_size = file_size
 
     
-    @property
-    def file_extension(self):
-        ext = self._fpath.suffix
-        if ext in self.VIDEO_EXTS+self.AUDIO_EXTS+self.IMAGE_EXTS+self.TEXTLIKE_EXTS:
-            return ext[1:]
-        return None
+    # @property
+    # def file_extension(self):
+    #     ext = self._fpath.suffix
+    #     if ext in ExtensionTypes.all():
+    #         return ext[1:]
+    #     return None
 
     @classmethod
     def from_file_path(cls, file_path: Path):
@@ -651,11 +652,7 @@ class ObsidianPage(object):
             else:  # Path exists but is not a file (e.g., a directory, or a special file)
                 text = f"[Error: Path exists but is not a regular file: {file_path}]"
             
-            s = file_path.stat(); s.st_size
-            created_time = datetime.fromtimestamp(s.st_ctime_ns / 1e9, tz=timezone.utc)
-            # mtime (last modification time in ns)
-            modified_time = datetime.fromtimestamp(s.st_mtime_ns / 1e9, tz=timezone.utc)
-            file_size = s.st_size
+  
         else:
             try:
                 text = file_path.read_text(encoding="utf-8")
@@ -666,10 +663,12 @@ class ObsidianPage(object):
             except Exception as e:
                 # Catch any other unexpected errors during file reading
                 text = f"[Error: An unexpected error occurred while reading {file_path}. Reason: {e}]"
-            created_time = None
-            # mtime (last modification time in ns)
-            modified_time = None
-            file_size = None
+
+        s = file_path.stat(); s.st_size
+        created_time = datetime.fromtimestamp(s.st_ctime_ns / 1e9, tz=timezone.utc)
+        # mtime (last modification time in ns)
+        modified_time = datetime.fromtimestamp(s.st_mtime_ns / 1e9, tz=timezone.utc)
+        file_size = s.st_size
             
         return cls(text=text, 
                    fpath=file_path, 
@@ -678,9 +677,9 @@ class ObsidianPage(object):
                    file_size=file_size)
 
 
-    @property
-    def lockey(self):
-        return str(self._fpath.relative_to(config.OBSIDIAN_VAULT)) if self._fpath else None
+    # @property
+    # def lockey(self):
+    #     return str(self._fpath.relative_to(config.OBSIDIAN_VAULT)) if self._fpath else None
 
     @property
     def obsidian_url(self):
@@ -702,9 +701,9 @@ class ObsidianPage(object):
             if type(o).__name__ == 'Frontmatter': return o
         return None
 
-    @property
-    def parent(self):
-        return self._fpath.parent.name
+    # @property
+    # def parent(self):
+    #     return self._fpath.parent.name
         
     def get_property(self, key='title'):
         if self.frontmatter:
@@ -720,9 +719,9 @@ class ObsidianPage(object):
     def tags(self):
         return get_links(self.doc, link_types=(TagLink))
 
-    @property
-    def app_url(self):
-        return MountPaths.open.to(file=self.lockey, title=self.title)
+    # @property
+    # def app_url(self):
+    #     return MountPaths.open.to(file=self.lockey, title=self.title)
 
     @property
     def links(self):
@@ -759,14 +758,14 @@ class ObsidianPage(object):
             html = renderer.render(self.doc)
         return html
 
-    @property
-    def text(self):
-        return self._text
+    # @property
+    # def text(self):
+    #     return self._text
 
 
-    @property
-    def checksum(self):
-        return hashlib.md5(self._text.encode('utf-8')).hexdigest()
+    # @property
+    # def checksum(self):
+    #     return hashlib.md5(self._text.encode('utf-8')).hexdigest()
 
 # %% ../nbs/05_mdmanager.ipynb 31
 def print_ast(token, indent=0):

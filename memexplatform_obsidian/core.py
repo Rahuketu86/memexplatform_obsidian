@@ -8,12 +8,11 @@ __all__ = ['app', 'rt', 'create_app', 'index', 'edit', 'open', 'iter_file', 'Col
 # %% ../nbs/00_core.ipynb 3
 from fasthtml.common import *
 from monsterui.all import *
-from .commons import config, MountPaths, ResponseTypes
+from .commons import config, MountPaths, ResponseTypes, ExtensionTypes
 from memexplatform.ui.structure import ifhtmx
 from .mdmanager import ObsidianHTMLRenderer, get_subdirs, resolve_note_path
 from mistletoe import Document
 import urllib
-from .jupyter import render_nb
 from typing import Optional
 import pathlib
 from pathlib import Path
@@ -64,10 +63,10 @@ def edit(request:Request, session):
 # %% ../nbs/00_core.ipynb 10
 @rt
 def open(request: Request, session, file: str = "", title: Optional[str]=None):
-    VIDEO_EXTS = (".mp4", ".webm", ".ogg", ".mov", ".mkv")
-    AUDIO_EXTS = (".mp3", ".wav", ".ogg", ".m4a", ".flac")
-    IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp")
-    TEXTLIKE_EXTS = (".md", ".qmd", ".canvas", ".base")
+    # VIDEO_EXTS = (".mp4", ".webm", ".ogg", ".mov", ".mkv")
+    # AUDIO_EXTS = (".mp3", ".wav", ".ogg", ".m4a", ".flac")
+    # IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp")
+    # TEXTLIKE_EXTS = (".md", ".qmd", ".canvas", ".base")
     
     # Simple check: if it's HTMX, return HTML; otherwise return raw file
     is_htmx = request.headers.get('HX-Request')
@@ -128,7 +127,7 @@ def open(request: Request, session, file: str = "", title: Optional[str]=None):
         data_url = f"data:{mime_type};base64,{b64_data}"
         
         # Check file type and return appropriate HTML
-        if extension in IMAGE_EXTS:
+        if extension in ExtensionTypes.IMAGE_EXTS:
             return ifhtmx(
                 request,
                 Container(
@@ -140,7 +139,7 @@ def open(request: Request, session, file: str = "", title: Optional[str]=None):
                     )
                 )
             )
-        elif extension in VIDEO_EXTS:
+        elif extension in ExtensionTypes.VIDEO_EXTS:
             return ifhtmx(
                 request,
                 Container(
@@ -154,7 +153,7 @@ def open(request: Request, session, file: str = "", title: Optional[str]=None):
                     )
                 )
             )
-        elif extension in AUDIO_EXTS:
+        elif extension in ExtensionTypes.AUDIO_EXTS:
             return ifhtmx(
                 request,
                 Container(
@@ -179,102 +178,6 @@ def open(request: Request, session, file: str = "", title: Optional[str]=None):
             )
     else:
         return ifhtmx(request, Div("No Response"))
-# @rt
-# def open(request: Request, session, file: str = "", title: Optional[str]=None):
-#     VIDEO_EXTS = (".mp4", ".webm", ".ogg", ".mov", ".mkv")
-#     AUDIO_EXTS = (".mp3", ".wav", ".ogg", ".m4a", ".flac")
-#     IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp")
-#     TEXTLIKE_EXTS = (".md", ".qmd", ".canvas", ".base")
-#     store = DBStore(config) if config.ENABLE_DB_MODE else FileStore(config)
-#     out = store.query_file(file)
-#     if out['content'] is None: return Div(f"Path not found: {urllib.parse.unquote(file)}")
-
-#     # If it's a directory → list contents
-#     if out['is_folder']:
-#         items = []
-#         for p in out['content']:
-#             name = p['fname']
-#             href = p['url']
-#             items.append(Li(A(name, href=href)))
-#         return ifhtmx(request,
-#             Div(
-#                 f"Listing for {out['title']}:",
-#                 Ul(*items)
-#             )
-#         )
-#     elif out['response_type'] == ResponseTypes.html:
-#         html = out['content']
-#         session['obsidian_url'] = out['obsidian_url']
-
-#         return ifhtmx(
-#             request,
-#             Container(
-#                 H1(out['title'], cls='uk-h1 text-4xl font-bold mt-12 mb-6'),
-#                 Card(NotStr(apply_classes(html)))
-#             )
-#         )
-#     elif out['response_type'] == ResponseTypes.file:
-#         file = out['content']
-#         return FileResponse(file)
-#     elif out['response_type'] == ResponseTypes.blob:
-#         blob_data = out['content']
-#         if not isinstance(blob_data, (bytes, bytearray)):
-#             blob_data = bytes(blob_data)
-
-
-#         mime_type = guess_mime(f"file.{out['extension']}") or "application/octet-stream"
-#         print(mime_type)
-#         return StreamingResponse(
-#             BytesIO(blob_data),
-#             media_type=mime_type,
-#             headers={
-#                 "Content-Disposition": f'inline; filename="{(title or "file")}.{out["extension"].lstrip(".")}"',
-#                 "Cache-Control": "no-store",
-#         }
-#     )
-#     else:
-#         return ifhtmx(request, Div("No Response"))
-
-# @rt
-# def open(request: Request, session, file: str = "", title: Optional[str]=None):
-#     vault_path = config.OBSIDIAN_VAULT
-#     file_path = resolve_note_path(vault_path, file)
-#     if file_path is None: return Div(f"Path not found: {urllib.parse.unquote(file)}")
-
-#     # If it's a directory → list contents
-#     if file_path.is_dir():
-#         items = []
-#         for p in sorted(file_path.iterdir()):
-#             rel_path = p.relative_to(vault_path)
-#             href = MountPaths.open.to(file=rel_path)
-#             items.append(Li(A(p.name, href=href)))
-#         return ifhtmx(request,
-#             Div(
-#                 f"Listing for {file_path}:",
-#                 Ul(*items)
-#             )
-#         )
-#     # If it's a file → show content (assuming text)
-#     if file_path.is_file():
-#         if file_path.name.lower().endswith(".ipynb"):
-#             return ifhtmx(
-#                     request,
-#                     Container(
-#                         H1(file_path.stem, cls='uk-h1 text-4xl font-bold mt-12 mb-6'),
-#                         render_nb(file_path)
-#                 ))
-
-
-#         op = ObsidianPage.from_file_path(file_path)
-#         session['obsidian_url'] = op.obsidian_url
-
-#         return ifhtmx(
-#             request,
-#             Container(
-#                 H1(op.title, cls='uk-h1 text-4xl font-bold mt-12 mb-6'),
-#                 Card(NotStr(apply_classes(op.html)))
-#             )
-#         )
 
 # %% ../nbs/00_core.ipynb 11
 def iter_file(path, chunk_size=8192):
@@ -294,10 +197,10 @@ def CollapsibleBlocks(title, comp):
 # %% ../nbs/00_core.ipynb 15
 @rt
 def embed(request: Request, file: str = "", ext: Optional[str] = None, title: Optional[str] = None):
-    VIDEO_EXTS = {".mp4", ".webm", ".ogg", ".mov", ".mkv"}
-    AUDIO_EXTS = {".mp3", ".wav", ".ogg", ".m4a", ".flac"}
-    IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"}
-    TEXTLIKE_EXTS = {".md", ".qmd", ".canvas", ".base"}
+    # VIDEO_EXTS = {".mp4", ".webm", ".ogg", ".mov", ".mkv"}
+    # AUDIO_EXTS = {".mp3", ".wav", ".ogg", ".m4a", ".flac"}
+    # IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"}
+    # TEXTLIKE_EXTS = {".md", ".qmd", ".canvas", ".base"}
 
     store = DBStore(config) if config.ENABLE_DB_MODE else FileStore(config)
     out = store.query_file(file)
@@ -309,7 +212,7 @@ def embed(request: Request, file: str = "", ext: Optional[str] = None, title: Op
                 href = p["url"]
                 items.append(Li(A(name, href=href)))
             return ifhtmx(request, Div(f"Listing for {out['title']}:", Ul(*items)))
-    if ext in IMAGE_EXTS:
+    if ext in ExtensionTypes.IMAGE_EXTS:
             headers = {"Content-Type": f"image/{ext.lstrip('.')}"}
             if title: headers["X-Image-Title"] = title
             alt_text = pathlib.Path(file).stem
@@ -317,14 +220,14 @@ def embed(request: Request, file: str = "", ext: Optional[str] = None, title: Op
             if out["response_type"] == ResponseTypes.file: return FileResponse(out["content"], headers=headers)
             elif out["response_type"] == ResponseTypes.blob: return StreamingResponse(BytesIO(out["content"]), headers=headers)
 
-    if ext in VIDEO_EXTS:
+    if ext in ExtensionTypes.VIDEO_EXTS:
             mime = guess_mime(file) or f"video/{ext.lstrip('.')}"
             headers = {"Accept-Ranges": "bytes"}
             if out["response_type"] == ResponseTypes.file: return FileResponse(out["content"], media_type=mime, headers=headers, filename=title or file)
             elif out["response_type"] == ResponseTypes.blob: return StreamingResponse(BytesIO(out["content"]), media_type=mime, headers=headers)
 
         # --- Audio files ---
-    if ext in AUDIO_EXTS:
+    if ext in ExtensionTypes.AUDIO_EXTS:
         mime = guess_mime(file) or f"audio/{ext.lstrip('.')}"
         headers = {"Accept-Ranges": "bytes"}
         if out["response_type"] == ResponseTypes.file: return FileResponse(out["content"], media_type=mime, headers=headers, filename=title or file)
@@ -337,87 +240,3 @@ def embed(request: Request, file: str = "", ext: Optional[str] = None, title: Op
         )
 
     return ifhtmx(request, Div("Unsupported file type"))
-    # if file.lower().endswith(".ipynb"):
-    #         return ifhtmx(
-    #             request,
-    #             Container(
-    #                 H1(title or pathlib.Path(file).stem, cls="uk-h1 text-4xl font-bold mt-12 mb-6"),
-    #                 render_nb(out["content"]),
-    #             ),
-    #         )
-# @rt
-# def embed(request: Request, file: str = "", ext:Optional[str]=None, title:Optional[str]=None):
-#     VIDEO_EXTS = {".mp4", ".webm", ".ogg", ".mov", ".mkv"}
-#     AUDIO_EXTS = {".mp3", ".wav", ".ogg", ".m4a", ".flac"}
-#     IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"}
-#     TEXTLIKE_EXTS = {".md", ".qmd", ".canvas", ".base"}
-#     vault_path = config.OBSIDIAN_VAULT
-#     file_path = resolve_note_path(vault_path, file)
-#     print("Z1")
-#     if file_path is None: return Div(f"Path not found: {urllib.parse.unquote(file)}")
-
-#     # If it's a directory → list contents
-#     if file_path.is_dir():
-#         items = []
-#         for p in sorted(file_path.iterdir()):
-#             rel_path = p.relative_to(vault_path)
-#             href = MountPaths.open.to(file=rel_path)
-#             items.append(Li(A(p.name, href=href)))
-#         return ifhtmx(request,
-#             Div(
-#                 f"Listing for {file_path}:",
-#                 Ul(*items)
-#             )
-#         )
-#     # If it's a file → show content (assuming text)
-#     if file_path.is_file():
-#         print("Z2")
-#         if ext in IMAGE_EXTS:
-#             headers = {'Content-Type': f"image/{ext[1:]}"}
-            
-#             # Add alt and title to headers if available/derivable
-#             # 'title' is passed as a parameter to the embed function
-#             if title:
-#                 headers['X-Image-Title'] = title
-            
-#             # 'alt' is not passed directly to the embed function, so derive it from the file name
-#             # This 'alt' would typically be used by the HTML <img> tag that references this image.
-#             # Adding it as a custom header here provides it in the response, as per instruction.
-#             alt_text = pathlib.Path(file).stem
-#             headers['X-Image-Alt'] = alt_text
-            
-#             return Response(file_path.read_bytes(), headers=headers)
-
-#         # --- Video files ---
-#         if ext in VIDEO_EXTS:
-#             # mime = f"video/{ext[1:]}" if ext else "video/mp4"
-#             # mime = mimetypes.guess_type(file_path.name, strict=False)
-#             mime = guess_mime(file_path.name)
-#             print(mime)
-#             headers = {"Accept-Ranges": "bytes"}  # Important for seeking
-#             # return Response(file_path.read_bytes(), headers=headers)
-#             return FileResponse(file_path, media_type=mime, headers=headers, filename=file_path.name)
-
-#         # --- Audio files ---
-#         if ext in AUDIO_EXTS:
-#             # mime = f"audio/{ext[1:]}" if ext else "audio/mpeg"
-#             # mime = mimetypes.guess_type(file_path.name, strict=False)
-#             mime = guess_mime(file_path.name)
-#             headers = {"Accept-Ranges": "bytes"}  # Important for seeking
-#             # return Response(file_path.read_bytes(), headers=headers)
-#             print(mime)
-#             return FileResponse(file_path, media_type=mime, headers=headers, filename=file_path.name)
-
-#         if file_path.name.lower().endswith(".ipynb"):
-#             return ifhtmx(
-#                     request,
-#                     Container(
-#                         H1(file_path.stem, cls='uk-h1 text-4xl font-bold mt-12 mb-6'),
-#                         render_nb(file_path)
-#                 ))
-#         op = ObsidianPage.from_file_path(file_path)
-#         print("Heeeo")
-#         return CollapsibleBlocks(
-#            Div(op.title), 
-#            NotStr(apply_classes(op.html))
-#         )
