@@ -30,11 +30,32 @@ def create_app():
     PyscriptJS=Script(src="https://pyscript.net/releases/2025.3.1/core.js", type='module')
     SurrealGlobalAdd = Script("surreal.globalsAdd());");
     Plotly = Script(src="https://cdn.plot.ly/plotly-3.0.1.min.js")
-    add_hdrs = [Mermaid, Katex, D3, PyscriptCSS, PyscriptJS, SurrealGlobalAdd, Plotly]
+     # Observable (OJS) runtime + stdlib
+    OJSRuntime = Script(type="module", content="""
+import {Runtime, Inspector} from "https://cdn.jsdelivr.net/npm/@observablehq/runtime@5/dist/runtime.js";
+import {Library} from "https://cdn.jsdelivr.net/npm/@observablehq/stdlib@5/dist/stdlib.js";
+import {parser} from "https://cdn.jsdelivr.net/npm/@observablehq/parser@5/dist/parser.min.js";
+
+// Find all <script type="ojs">
+document.querySelectorAll("script[type='ojs']").forEach(script => {
+  const containerId = script.dataset.container;
+  const container = document.getElementById(containerId);
+  const code = script.textContent;
+
+  // Parse OJS source into cells
+  const parsed = parser.module(code);
+
+  const runtime = new Runtime(new Library());
+  const main = runtime.module(parsed);
+
+  // Render each defined cell into the container
+  main.variable(Inspector(container));
+""")
+    add_hdrs = [Mermaid, Katex, D3, PyscriptCSS, PyscriptJS, SurrealGlobalAdd, Plotly, OJSRuntime]
     newhdrs = hdrs +add_hdrs
     mount_routes = []
 
-    app = FastHTML(hdrs=newhdrs, live=True, exts='ws', routes=mount_routes)
+    app = FastHTML(hdrs=newhdrs, live=True, exts='ws', routes=mount_routes, highlightjs=True)
     # app.add_middleware(SessionSyncMiddleware)
     rt = app.route
     return app, rt

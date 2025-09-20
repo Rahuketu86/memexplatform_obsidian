@@ -37,7 +37,8 @@ import hashlib
 from urllib.parse import urlparse
 # from fasthtml.common import *
 # from monsterui.all import *
-
+import uuid
+import json
 
 
 # %% ../nbs/05_mdmanager.ipynb 4
@@ -605,6 +606,39 @@ class ObsidianHTMLRenderer(HTMLRenderer):
         else:
             return super().render_quote(token)
 
+
+    def render_block_code(self, token: block_token.BlockCode) -> str:
+        # Handle ObservableJS blocks
+        if token.language == "ojs":
+            container_id = f"ojs-container-{uuid.uuid4().hex}"
+            code = token.children[0].content if token.children else ""
+            return f"""
+<div id="{container_id}"></div>
+<script type="ojs" data-container="{container_id}">
+{code}
+</script>
+"""
+        elif token.language == "base":
+            return f"""<div></div>"""
+
+        elif token.language == "plotlyjs":
+            # Parse the JSON content inside the fence
+            try:
+                spec = json.loads(token.children[0].content)
+            except json.JSONDecodeError:
+                return f"<pre><code>{token.children[0].content}</code></pre>"
+
+            div_id = f"plotly-{id(token)}"
+            return f"""
+<div id="{div_id}" style="width:100%;height:400px;"></div>
+<script>
+    Plotly.newPlot("{div_id}", {json.dumps(spec.get("data", []))}, {json.dumps(spec.get("layout", {}))});
+</script>
+"""
+
+        # You could add "base" or other languages here too.
+        # Otherwise, fall back to the default implementation:
+        return super().render_block_code(token)
 
 # %% ../nbs/05_mdmanager.ipynb 24
 def get_links(root, link_types=(Link, AnyLink)):

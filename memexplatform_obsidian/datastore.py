@@ -293,7 +293,7 @@ class FileStore(NoteStore):
                 lockey = op.lockey
                 extension = op.file_extension
                 response_type=ResponseTypes.html
-            elif pfname.name.endswith(AUDIO_EXTS+VIDEO_EXTS+IMAGE_EXTS):
+            elif pfname.name.endswith(ExtensionTypes.AUDIO_EXTS+ExtensionTypes.VIDEO_EXTS+ExtensionTypes.IMAGE_EXTS):
                 op = ObsidianPage.from_file_path(pfname)
                 content = pfname # pfname.read_bytes()
                 obsidian_url = op.obsidian_url
