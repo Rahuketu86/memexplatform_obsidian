@@ -636,6 +636,14 @@ class ObsidianHTMLRenderer(HTMLRenderer):
 </script>
 """
 
+        elif token.language == "gradiolite":
+            code = token.children[0].content if token.children else ""
+            return f"""
+<gradio-lite>
+{code}
+</gradio-lite>
+"""
+
         # You could add "base" or other languages here too.
         # Otherwise, fall back to the default implementation:
         return super().render_block_code(token)

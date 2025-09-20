@@ -26,8 +26,8 @@ def create_app():
     Mermaid = MermaidJS()
     Katex = KatexMarkdownJS()
     D3 = Script(src="https://cdn.jsdelivr.net/npm/d3@7")
-    PyscriptCSS=Link(rel="stylesheet", href="https://pyscript.net/releases/2025.3.1/core.css", type="text/css"),
-    PyscriptJS=Script(src="https://pyscript.net/releases/2025.3.1/core.js", type='module')
+    PyscriptCSS=Link(rel="stylesheet", href="https://pyscript.net/releases/2025.8.1/core.css", type="text/css"),
+    PyscriptJS=Script(src="https://pyscript.net/releases/2025.8.1/core.js", type='module')
     SurrealGlobalAdd = Script("surreal.globalsAdd());");
     Plotly = Script(src="https://cdn.plot.ly/plotly-3.0.1.min.js")
      # Observable (OJS) runtime + stdlib
@@ -51,7 +51,10 @@ document.querySelectorAll("script[type='ojs']").forEach(script => {
   // Render each defined cell into the container
   main.variable(Inspector(container));
 """)
-    add_hdrs = [Mermaid, Katex, D3, PyscriptCSS, PyscriptJS, SurrealGlobalAdd, Plotly, OJSRuntime]
+
+    GradioLiteCSS = Link(rel="stylesheet", href="https://cdn.jsdelivr.net/npm/@gradio/lite/dist/lite.css")
+    GradioLiteJS = Script(type="module", crossorigin=True, src="https://cdn.jsdelivr.net/npm/@gradio/lite/dist/lite.js")
+    add_hdrs = [Mermaid, Katex, D3, PyscriptCSS, PyscriptJS, SurrealGlobalAdd, Plotly, OJSRuntime, GradioLiteCSS, GradioLiteJS]
     newhdrs = hdrs +add_hdrs
     mount_routes = []
 
