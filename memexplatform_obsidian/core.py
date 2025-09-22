@@ -20,9 +20,9 @@ from .mdmanager import ObsidianPage, guess_mime
 from .datastore import DBStore, FileStore
 from io import BytesIO
 
-# %% ../nbs/00_core.ipynb 5
+# %% ../nbs/00_core.ipynb 6
 def create_app():
-    hdrs = Theme.neutral.headers(highlightjs=True)
+    hdrs = Theme.neutral.headers(highlightjs=True, apex_charts=True, katex=True)
     Mermaid = MermaidJS()
     Katex = KatexMarkdownJS()
     D3 = Script(src="https://cdn.jsdelivr.net/npm/d3@7")
@@ -65,7 +65,7 @@ document.querySelectorAll("script[type='ojs']").forEach(script => {
 
 app, rt = create_app()
 
-# %% ../nbs/00_core.ipynb 7
+# %% ../nbs/00_core.ipynb 8
 @rt
 def index(request:Request):
 
@@ -74,7 +74,7 @@ def index(request:Request):
     
     return ifhtmx(request, comp)
 
-# %% ../nbs/00_core.ipynb 9
+# %% ../nbs/00_core.ipynb 10
 @rt
 def edit(request:Request, session):
     obsidian_url = session['obsidian_url']
@@ -84,7 +84,7 @@ def edit(request:Request, session):
     return resp
     
 
-# %% ../nbs/00_core.ipynb 10
+# %% ../nbs/00_core.ipynb 11
 @rt
 def open(request: Request, session, file: str = "", title: Optional[str]=None):
     # VIDEO_EXTS = (".mp4", ".webm", ".ogg", ".mov", ".mkv")
@@ -203,13 +203,13 @@ def open(request: Request, session, file: str = "", title: Optional[str]=None):
     else:
         return ifhtmx(request, Div("No Response"))
 
-# %% ../nbs/00_core.ipynb 11
+# %% ../nbs/00_core.ipynb 12
 def iter_file(path, chunk_size=8192):
     with open(path, "rb") as f:
         while chunk := f.read(chunk_size):
             yield chunk
 
-# %% ../nbs/00_core.ipynb 13
+# %% ../nbs/00_core.ipynb 14
 def CollapsibleBlocks(title, comp):
     return Div(
             Input(type='checkbox'),
@@ -218,7 +218,7 @@ def CollapsibleBlocks(title, comp):
             cls='collapse collapse-plus border'
         )
 
-# %% ../nbs/00_core.ipynb 15
+# %% ../nbs/00_core.ipynb 16
 @rt
 def embed(request: Request, file: str = "", ext: Optional[str] = None, title: Optional[str] = None):
     # VIDEO_EXTS = {".mp4", ".webm", ".ogg", ".mov", ".mkv"}

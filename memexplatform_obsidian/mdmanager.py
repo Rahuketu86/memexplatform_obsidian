@@ -39,6 +39,7 @@ from urllib.parse import urlparse
 # from monsterui.all import *
 import uuid
 import json
+from .engine.apexchart import ApexChartEngine
 
 
 # %% ../nbs/05_mdmanager.ipynb 4
@@ -494,6 +495,9 @@ class ObsidianAstRenderer(AstRenderer):
         return token.children
 
 # %% ../nbs/05_mdmanager.ipynb 21
+from . import engine
+
+
 class ObsidianHTMLRenderer(HTMLRenderer):
 
     # VIDEO_EXTS = {".mp4", ".webm", ".ogg", ".mov", ".mkv"}
@@ -643,6 +647,10 @@ class ObsidianHTMLRenderer(HTMLRenderer):
 {code}
 </gradio-lite>
 """
+
+        elif token.language == 'apexchart':
+            engine = ApexChartEngine(token)
+            return engine.render_html()
 
         # You could add "base" or other languages here too.
         # Otherwise, fall back to the default implementation:

@@ -224,6 +224,7 @@ class NoteStore(ABC):
     @abstractmethod
     def listing(self, folder): 
         ...
+        
     @abstractmethod
     def query_file(self, file)->(Path,bool):
         ...
@@ -483,6 +484,7 @@ class DBStore(NoteStore):
             # print(lockey)
             # print(list(self.db['node'].rows_where("lockey = ?", (lockey,), select='lockey,modified_time,file_size,checksum'))[0])
             infos = list(self.db['node'].rows_where("lockey = ?", (lockey,), select='lockey,modified_time,file_size,checksum'))
+            # print(infos)
             if infos:
                 info = infos[0]; info
                 details = f.stat()
@@ -491,7 +493,9 @@ class DBStore(NoteStore):
                 if same_size and similar_time: continue
                 else:
                     if ObsidianPage.from_file_path(f).checksum == info['checksum']: continue
-                    else: self.upsert(f)
+                    else: 
+                        print(f"Syncing {f}")
+                        self.upsert(f)
             else:
                 self.upsert(f)
 

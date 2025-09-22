@@ -101,6 +101,12 @@ prodsrc:
 runapp:
 	memexplatform_runapp
 
+sync_vault:
+	obsidian_sync_vault
+
+watch_vault:
+	obsidian_watch_vault
+
 listroutes:
 	memexplatform_listroutes
 	
