@@ -27,6 +27,7 @@ class MountPaths(Enum):
     embed="/embed"
     obsidian_url = "obsidian://open"
     edit = "/edit"
+    backlinks = "/backlinks"
 
     def get_mount_name(self):
         return self.value.rsplit("/")[-1]

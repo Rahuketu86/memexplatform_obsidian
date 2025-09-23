@@ -4,7 +4,7 @@
 
 # %% auto 0
 __all__ = ['Node', 'Links', 'Properties', 'update_node', 'get_properties', 'get_pagelinks', 'update_folder_node', 'iter_files',
-           'NoteStore', 'FileStore', 'DBStore']
+           'Backlink', 'NoteStore', 'FileStore', 'DBStore']
 
 # %% ../nbs/07_datastore.ipynb 3
 from dataclasses import dataclass
@@ -20,6 +20,8 @@ from .commons import MountPaths, ResponseTypes
 from abc import ABC, ABCMeta, abstractmethod
 import urllib
 from .jupyter import JupyterPage
+from fasthtml.common import *
+from monsterui.all import *
 
 # %% ../nbs/07_datastore.ipynb 4
 @dataclass
@@ -34,6 +36,7 @@ class Node:
     blob: bytes
     ext: str
     is_folder: bool
+    title: str
     url: str
     obsidian_url: Optional[str]
     checksum: bytes
@@ -101,7 +104,7 @@ def update_node(page, file_path):
         file_size=file_size_val,
         fname=file_path.name,
         parent=str(page.parent),
-        # title = page.title,
+        title = page.title,
         text=node_text_content,
         blob=node_blob_content,
         ext=node_ext,
@@ -199,6 +202,7 @@ def update_folder_node(folder_path: Path, vault:Path) -> Node:
         file_size=0,
         fname=folder_path.name,
         parent=str(folder_path.parent.relative_to(vault)),
+        title = folder_path.name,
         text="",
         blob=b"",
         ext="",
@@ -215,6 +219,29 @@ def iter_files(dirs):
 
 
 # %% ../nbs/07_datastore.ipynb 12
+@dataclass
+class Backlink:
+    lockey_page: str
+    lockey_backlink: str
+    db: Database
+
+    @property
+    def url(self):
+        return MountPaths.open.to(file=self.lockey_backlink)
+
+
+    @property
+    def title(self):
+        print(self.lockey_backlink)
+        # return self.url
+        return list(self.db['node'].rows_where("lockey = ?", (str(self.lockey_backlink),), select='title'))[0]['title']
+
+
+
+    # def __ft__(self):
+    #     return A(self.title, href=self.url)
+
+# %% ../nbs/07_datastore.ipynb 14
 class NoteStore(ABC):
     @property
     @abstractmethod
@@ -229,9 +256,12 @@ class NoteStore(ABC):
     def query_file(self, file)->(Path,bool):
         ...
 
-    
 
-# %% ../nbs/07_datastore.ipynb 14
+    @abstractmethod
+    def backlinks(self, lockey):
+        ...
+
+# %% ../nbs/07_datastore.ipynb 15
 class FileStore(NoteStore):
 
     def __init__(self, config):
@@ -316,7 +346,7 @@ class FileStore(NoteStore):
                     'title': title,
                     'lockey': lockey,
                     'extension': extension,
-                    'response_type':response_type }
+                    'response_type':response_type}
         else: 
             lsfldr = self.vault/search_term
             if lsfldr.is_dir(): 
@@ -326,7 +356,7 @@ class FileStore(NoteStore):
                         'title': search_term,
                         'lockey': search_term,
                         'extension': None,
-                        'response_type':ResponseTypes.pygen } 
+                        'response_type':ResponseTypes.pygen} 
             else: 
                 return {'content': None, 
                     'obsidian_url': None, 
@@ -334,9 +364,12 @@ class FileStore(NoteStore):
                     'title': None,
                     'lockey': None,
                     'extension': None,
-                    'response_type':ResponseTypes.html }
+                    'response_type':ResponseTypes.html}
 
-# %% ../nbs/07_datastore.ipynb 17
+    def backlinks(self, lockey):
+        return None
+
+# %% ../nbs/07_datastore.ipynb 18
 class DBStore(NoteStore):
 
     def __init__(self, config):
@@ -394,7 +427,7 @@ class DBStore(NoteStore):
                        'title': op.title if op.title else pathlib.Path(fname).stem,
                        'lockey': data['lockey'],
                        'extension': data['ext'],
-                       'response_type':ResponseTypes.html }
+                       'response_type':ResponseTypes.html}
         
         elif fname.endswith(ExtensionTypes.VIDEO_EXTS+ExtensionTypes.AUDIO_EXTS+ExtensionTypes.IMAGE_EXTS):
             
@@ -423,7 +456,7 @@ class DBStore(NoteStore):
                        'title': op.title if op.title else pathlib.Path(fname).stem,
                        'lockey': data['lockey'],
                        'extension': data['ext'],
-                       'response_type':ResponseTypes.html }
+                       'response_type':ResponseTypes.html}
             else:
                 data_list = list(self.db['node'].rows_where("fname = ?", (str(fname),), select='fname, url, obsidian_url, is_folder, text, ext, lockey'))
                 if data_list and data_list[0]['is_folder']:
@@ -442,7 +475,7 @@ class DBStore(NoteStore):
                            'title': None,
                            'lockey': None,
                            'extension': None,
-                           'response_type':ResponseTypes.html }
+                           'response_type':ResponseTypes.html}
         return out
 
     def upsert(self, file_path: Path): # Assuming Path is available from pathlib
@@ -475,7 +508,11 @@ class DBStore(NoteStore):
     def sync_vault(self, reindex=False):
         fstore = FileStore(self.config)
         dirs = fstore.subdirs; dirs
-        for d in dirs: self.db['node'].upsert(update_folder_node(d, fstore.vault))
+        for d in dirs: 
+            
+            fldr_node = update_folder_node(d, fstore.vault)
+            # print(d, fldr_node)
+            self.db['node'].upsert(fldr_node)
         for f in iter_files(dirs): 
             # check for entry and metadata
             if reindex: self.upsert(f)
@@ -499,3 +536,6 @@ class DBStore(NoteStore):
             else:
                 self.upsert(f)
 
+    def backlinks(self, lockey):
+        backlinks = list( Backlink(lockey, bl['lockey'], self.db) for bl in self.db['links'].rows_where("linked_lockey = ?", (str(lockey),), select='lockey'))
+        return backlinks
