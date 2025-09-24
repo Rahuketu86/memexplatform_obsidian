@@ -346,7 +346,8 @@ class FileStore(NoteStore):
                     'title': title,
                     'lockey': lockey,
                     'extension': extension,
-                    'response_type':response_type}
+                    'response_type':response_type,
+                    'backlinks': self.backlinks(op.lockey)}
         else: 
             lsfldr = self.vault/search_term
             if lsfldr.is_dir(): 
@@ -356,7 +357,8 @@ class FileStore(NoteStore):
                         'title': search_term,
                         'lockey': search_term,
                         'extension': None,
-                        'response_type':ResponseTypes.pygen} 
+                        'response_type':ResponseTypes.pygen,
+                        'backlinks': None} 
             else: 
                 return {'content': None, 
                     'obsidian_url': None, 
@@ -364,7 +366,8 @@ class FileStore(NoteStore):
                     'title': None,
                     'lockey': None,
                     'extension': None,
-                    'response_type':ResponseTypes.html}
+                    'response_type':ResponseTypes.html,
+                    'backlinks': None}
 
     def backlinks(self, lockey):
         return None
@@ -427,7 +430,8 @@ class DBStore(NoteStore):
                        'title': op.title if op.title else pathlib.Path(fname).stem,
                        'lockey': data['lockey'],
                        'extension': data['ext'],
-                       'response_type':ResponseTypes.html}
+                       'response_type':ResponseTypes.html,
+                       'backlinks': self.backlinks(data['lockey'])}
         
         elif fname.endswith(ExtensionTypes.VIDEO_EXTS+ExtensionTypes.AUDIO_EXTS+ExtensionTypes.IMAGE_EXTS):
             
@@ -444,7 +448,8 @@ class DBStore(NoteStore):
                        'title': op.title if op.title else pathlib.Path(fname).stem,
                        'lockey': data['lockey'],
                        'extension': data['ext'],
-                       'response_type':ResponseTypes.blob }
+                       'response_type':ResponseTypes.blob,
+                       'backlinks': self.backlinks(data['lockey']) }
         else:
             data_list = list(self.db['node'].rows_where("fname = ?", (str(fname+".md"),), select='fname, url, obsidian_url, is_folder, text, ext, lockey'))
             if data_list:
@@ -456,7 +461,8 @@ class DBStore(NoteStore):
                        'title': op.title if op.title else pathlib.Path(fname).stem,
                        'lockey': data['lockey'],
                        'extension': data['ext'],
-                       'response_type':ResponseTypes.html}
+                       'response_type':ResponseTypes.html,
+                       'backlinks': self.backlinks(data['lockey'])}
             else:
                 data_list = list(self.db['node'].rows_where("fname = ?", (str(fname),), select='fname, url, obsidian_url, is_folder, text, ext, lockey'))
                 if data_list and data_list[0]['is_folder']:
@@ -467,7 +473,8 @@ class DBStore(NoteStore):
                            'title': data['fname'],
                            'lockey': data['lockey'],
                            'extension': data['ext'],
-                           'response_type':ResponseTypes.pygen }
+                           'response_type':ResponseTypes.pygen,
+                           'backlinks': None }
                 else: 
                     out = {'content': None, 
                            'obsidian_url': None, 
@@ -475,7 +482,8 @@ class DBStore(NoteStore):
                            'title': None,
                            'lockey': None,
                            'extension': None,
-                           'response_type':ResponseTypes.html}
+                           'response_type':ResponseTypes.html,
+                           'backlinks': None}
         return out
 
     def upsert(self, file_path: Path): # Assuming Path is available from pathlib
@@ -537,5 +545,7 @@ class DBStore(NoteStore):
                 self.upsert(f)
 
     def backlinks(self, lockey):
+        print(lockey)
         backlinks = list( Backlink(lockey, bl['lockey'], self.db) for bl in self.db['links'].rows_where("linked_lockey = ?", (str(lockey),), select='lockey'))
+        print(backlinks)
         return backlinks

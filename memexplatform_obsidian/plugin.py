@@ -50,13 +50,14 @@ def BacklinkComponent():
                 Li('Backlinks'), 
                 id='backlink_list', 
                 cls='menu bg-base-200 text-base-content min-h-full w-80 p-4',
-                hx_post=MountPaths.backlinks.to(),
-                hx_include='#current-lockey',
-                hx_target='#backlink_list',
-                hx_swap='innerHTML',
-                hx_trigger='load, click',
-                hx_boost='false'
+                # hx_post=MountPaths.backlinks.to(),
+                # hx_include='#current-lockey',
+                # hx_target='#backlink_list',
+                # hx_swap='innerHTML',
+                # hx_trigger='load, click',
+                # hx_boost='false'
             ),
+            id='backlink-drawer-content',
             cls='drawer-side z-50',
         ),
         cls='drawer drawer-end'
