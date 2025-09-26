@@ -4,10 +4,10 @@
 
 # %% auto 0
 __all__ = ['Node', 'Links', 'Properties', 'update_node', 'get_properties', 'get_pagelinks', 'update_folder_node', 'iter_files',
-           'Backlink', 'Tlink', 'NoteStore', 'FileStore', 'DBStore']
+           'Link', 'Backlink', 'Tlink', 'NoteStore', 'FileStore', 'DBStore']
 
 # %% ../nbs/07_datastore.ipynb 3
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Dict, Optional
 from fastlite import Database, diagram
 from .commons import config, ExtensionTypes
@@ -218,49 +218,40 @@ def iter_files(dirs):
     for d in dirs:
         yield from (f for f in d.rglob("*") if f.is_file())
 
-
 # %% ../nbs/07_datastore.ipynb 12
 @dataclass
-class Backlink:
-    lockey_page: str
-    lockey_backlink: str
-    db: Database
-
-    @property
-    def url(self):
-        return MountPaths.open.to(file=self.lockey_backlink)
-
-
-    @property
-    def title(self):
-        # print(self.lockey_backlink)
-        # return self.url
-        return list(self.db['node'].rows_where("lockey = ?", (str(self.lockey_backlink),), select='title'))[0]['title']
-
-
-
-    # def __ft__(self):
-    #     return A(self.title, href=self.url)
-
-# %% ../nbs/07_datastore.ipynb 13
-@dataclass
-class Tlink:
-    tag: str
+class Link:
     lockey: str
     db: Database
+    _title: Optional[str] = field(default=None, init=False)
+
+    def __init__(self, lockey: str, db: "Database", _title: Optional[str] = None):
+        self.lockey = lockey
+        self.db = db
+        self._title = _title
+
 
     @property
     def url(self):
         return MountPaths.open.to(file=self.lockey)
 
-
     @property
     def title(self):
-        # print(self.lockey_backlink)
-        # return self.url
-        return list(self.db['node'].rows_where("lockey = ?", (str(self.lockey),), select='title'))[0]['title']
+        if not self._title:
+            return list(self.db['node'].rows_where("lockey = ?", (str(self.lockey),), select='title'))[0]['title']
+        else: return self._title
 
-# %% ../nbs/07_datastore.ipynb 15
+# %% ../nbs/07_datastore.ipynb 13
+@dataclass
+class Backlink(Link):
+    lockey_page: str
+
+
+@dataclass
+class Tlink(Link):
+    tag: str
+
+# %% ../nbs/07_datastore.ipynb 17
 class NoteStore(ABC):
     @property
     @abstractmethod
@@ -284,7 +275,7 @@ class NoteStore(ABC):
     def tlinks(self, tag):
         ...
 
-# %% ../nbs/07_datastore.ipynb 16
+# %% ../nbs/07_datastore.ipynb 18
 class FileStore(NoteStore):
 
     def __init__(self, config):
@@ -301,12 +292,19 @@ class FileStore(NoteStore):
                 subdirs.append(p)
         return subdirs
 
+    # def listing(self, folder):
+    #     for f in iter_files([folder]):
+    #         name = f.name
+    #         rel_path = f.relative_to(self.vault)
+    #         href = MountPaths.open.to(file=rel_path)
+    #         yield {'fname': name, 'url': href}
+
     def listing(self, folder):
-        for f in iter_files([folder]):
-            name = f.name
-            rel_path = f.relative_to(self.vault)
-            href = MountPaths.open.to(file=rel_path)
-            yield {'fname': name, 'url': href}
+        return list(Link(lockey=f.relative_to(self.vault), 
+                        db=None, 
+                        _title=f.name) 
+                        for f in iter_files([folder]))
+
 
     def query_file(self, file) -> Dict: # returns fullpath, is_folder
         # VIDEO_EXTS = (".mp4", ".webm", ".ogg", ".mov", ".mkv")
@@ -398,7 +396,7 @@ class FileStore(NoteStore):
     def tlinks(self, tag):
         return None
 
-# %% ../nbs/07_datastore.ipynb 19
+# %% ../nbs/07_datastore.ipynb 22
 class DBStore(NoteStore):
 
     def __init__(self, config):
@@ -421,9 +419,16 @@ class DBStore(NoteStore):
     def subdirs(self):
         return list(self.vault/d['lockey'] for d in self.db['node'].rows_where("is_folder = ?", (1,), select='lockey'))
 
-    def listing(self, folder):
-        yield from (d for d in self.db['node'].rows_where("parent = ?", (str(folder),), select='fname, url'))
+    # def listing(self, folder):
+    #     yield from (d for d in self.db['node'].rows_where("parent = ?", (str(folder),), select='fname, url'))
 
+    def listing(self, folder):
+        return list(Link(lockey=d['lockey'], 
+                            db=self.db, 
+                            _title=d['title']) 
+                            for d in self.db['node'].rows_where("parent = ?", (str(folder),), 
+                            select='lockey, title'))
+        # return super().listing(folder)
 
     def query_file(self, file):
         # VIDEO_EXTS = (".mp4", ".webm", ".ogg", ".mov", ".mkv")
@@ -574,14 +579,14 @@ class DBStore(NoteStore):
 
     def backlinks(self, lockey):
         # print(lockey)
-        backlinks = list( Backlink(lockey, bl['lockey'], self.db) for bl in self.db['links'].rows_where("linked_lockey = ?", (str(lockey),), select='lockey'))
+        backlinks = list( Backlink(lockey_page=lockey, lockey=bl['lockey'],db=self.db) for bl in self.db['links'].rows_where("linked_lockey = ?", (str(lockey),), select='lockey'))
         # print(backlinks)
         return backlinks
 
     def tlinks(self, tag):
         query = "name = ? AND value = ?"
         params = ("tags", f"#{tag}")
-        print(list(self.db['properties'].rows_where(query, params, select='lockey')))
-        backlinks = list( Tlink(tag, tl['lockey'], self.db) for tl in self.db['properties'].rows_where(query, params, select='lockey'))
+        # print(list(self.db['properties'].rows_where(query, params, select='lockey')))
+        backlinks = list( Tlink(tag=tag, lockey=tl['lockey'], db=self.db) for tl in self.db['properties'].rows_where(query, params, select='lockey'))
         # print(backlinks)
         return backlinks
