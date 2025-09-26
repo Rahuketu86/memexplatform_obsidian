@@ -4,7 +4,7 @@
 
 # %% auto 0
 __all__ = ['Node', 'Links', 'Properties', 'update_node', 'get_properties', 'get_pagelinks', 'update_folder_node', 'iter_files',
-           'Backlink', 'NoteStore', 'FileStore', 'DBStore']
+           'Backlink', 'Tlink', 'NoteStore', 'FileStore', 'DBStore']
 
 # %% ../nbs/07_datastore.ipynb 3
 from dataclasses import dataclass
@@ -14,7 +14,7 @@ from .commons import config, ExtensionTypes
 import pathlib
 from pathlib import Path
 from datetime import datetime, timezone
-from .mdmanager import ObsidianPage,  Link, RawText, AnyLink, TagLink, get_subdirs, resolve_note_path
+from .mdmanager import ObsidianPage,RawText, AnyLink, TagLink, get_subdirs, resolve_note_path
 import uuid
 from .commons import MountPaths, ResponseTypes
 from abc import ABC, ABCMeta, abstractmethod
@@ -22,6 +22,7 @@ import urllib
 from .jupyter import JupyterPage
 from fasthtml.common import *
 from monsterui.all import *
+from mistletoe.span_token import Link, RawText
 
 # %% ../nbs/07_datastore.ipynb 4
 @dataclass
@@ -232,7 +233,7 @@ class Backlink:
 
     @property
     def title(self):
-        print(self.lockey_backlink)
+        # print(self.lockey_backlink)
         # return self.url
         return list(self.db['node'].rows_where("lockey = ?", (str(self.lockey_backlink),), select='title'))[0]['title']
 
@@ -241,7 +242,25 @@ class Backlink:
     # def __ft__(self):
     #     return A(self.title, href=self.url)
 
-# %% ../nbs/07_datastore.ipynb 14
+# %% ../nbs/07_datastore.ipynb 13
+@dataclass
+class Tlink:
+    tag: str
+    lockey: str
+    db: Database
+
+    @property
+    def url(self):
+        return MountPaths.open.to(file=self.lockey)
+
+
+    @property
+    def title(self):
+        # print(self.lockey_backlink)
+        # return self.url
+        return list(self.db['node'].rows_where("lockey = ?", (str(self.lockey),), select='title'))[0]['title']
+
+# %% ../nbs/07_datastore.ipynb 15
 class NoteStore(ABC):
     @property
     @abstractmethod
@@ -261,7 +280,11 @@ class NoteStore(ABC):
     def backlinks(self, lockey):
         ...
 
-# %% ../nbs/07_datastore.ipynb 15
+    @abstractmethod
+    def tlinks(self, tag):
+        ...
+
+# %% ../nbs/07_datastore.ipynb 16
 class FileStore(NoteStore):
 
     def __init__(self, config):
@@ -372,7 +395,10 @@ class FileStore(NoteStore):
     def backlinks(self, lockey):
         return None
 
-# %% ../nbs/07_datastore.ipynb 18
+    def tlinks(self, tag):
+        return None
+
+# %% ../nbs/07_datastore.ipynb 19
 class DBStore(NoteStore):
 
     def __init__(self, config):
@@ -511,6 +537,8 @@ class DBStore(NoteStore):
         links = get_pagelinks(page, self.vault)
         self.db["links"].insert_all(links)
         self.db["properties"].delete_where("lockey = ?", (page.lockey,))
+        # print(page.title)
+        # print(get_properties(page))
         self.db["properties"].insert_all(get_properties(page))
 
     def sync_vault(self, reindex=False):
@@ -519,7 +547,7 @@ class DBStore(NoteStore):
         for d in dirs: 
             
             fldr_node = update_folder_node(d, fstore.vault)
-            # print(d, fldr_node)
+            print(d, fldr_node)
             self.db['node'].upsert(fldr_node)
         for f in iter_files(dirs): 
             # check for entry and metadata
@@ -545,7 +573,15 @@ class DBStore(NoteStore):
                 self.upsert(f)
 
     def backlinks(self, lockey):
-        print(lockey)
+        # print(lockey)
         backlinks = list( Backlink(lockey, bl['lockey'], self.db) for bl in self.db['links'].rows_where("linked_lockey = ?", (str(lockey),), select='lockey'))
-        print(backlinks)
+        # print(backlinks)
+        return backlinks
+
+    def tlinks(self, tag):
+        query = "name = ? AND value = ?"
+        params = ("tags", f"#{tag}")
+        print(list(self.db['properties'].rows_where(query, params, select='lockey')))
+        backlinks = list( Tlink(tag, tl['lockey'], self.db) for tl in self.db['properties'].rows_where(query, params, select='lockey'))
+        # print(backlinks)
         return backlinks

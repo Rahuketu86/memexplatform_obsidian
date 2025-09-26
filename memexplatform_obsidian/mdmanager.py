@@ -69,11 +69,11 @@ def guess_mime(path: str) -> str:
     mime = mimetypes.guess_type(path, strict=False)[0]
     return mime or "application/octet-stream"
 
-# %% ../nbs/05_mdmanager.ipynb 6
+# %% ../nbs/05_mdmanager.ipynb 5
 config = ObsidianConfig(); config
 # (config.PORTAL/'index.qmd').exists()
 
-# %% ../nbs/05_mdmanager.ipynb 7
+# %% ../nbs/05_mdmanager.ipynb 6
 def get_subdirs(vault: Path):
     subdirs = []
     for p in vault.rglob("*"):
@@ -83,7 +83,7 @@ def get_subdirs(vault: Path):
             subdirs.append(p)
     return subdirs
 
-# %% ../nbs/05_mdmanager.ipynb 8
+# %% ../nbs/05_mdmanager.ipynb 7
 def resolve_note_path(vault:Path, file:str) -> Path | None:
     search_term = urllib.parse.unquote(file); search_term
     rel_path = Path(search_term); rel_path
@@ -115,7 +115,7 @@ def resolve_note_path(vault:Path, file:str) -> Path | None:
         if lsfldr.is_dir(): return lsfldr
         else: return None
 
-# %% ../nbs/05_mdmanager.ipynb 12
+# %% ../nbs/05_mdmanager.ipynb 11
 class ObsidianEmbed(Link):
     """
     Obsidian-style embeds:
@@ -168,7 +168,7 @@ class ObsidianEmbed(Link):
         # Render children as the alias text
         self.children = list(span_token.tokenize_inner(alias))
 
-# %% ../nbs/05_mdmanager.ipynb 13
+# %% ../nbs/05_mdmanager.ipynb 12
 class ObsidianLink(Link):
     """
     Obsidian-style markdown link [Alias](target "title").
@@ -208,7 +208,7 @@ class ObsidianLink(Link):
         self.children = list(span_token.tokenize_inner(alias))
 
 
-# %% ../nbs/05_mdmanager.ipynb 14
+# %% ../nbs/05_mdmanager.ipynb 13
 class WikiLink(Link):
     """
     Obsidian-style wikilink [[Note|Alias]] that behaves like mistletoe.Link.
@@ -238,7 +238,7 @@ class WikiLink(Link):
         # self.children = [RawText(self.alias)]
         self.children = list(span_token.tokenize_inner(self.alias))
 
-# %% ../nbs/05_mdmanager.ipynb 15
+# %% ../nbs/05_mdmanager.ipynb 14
 class AnyLink(span_token.SpanToken):
     """
     Match any URI scheme like obsidian://, logseq://, code://, http://, https:// etc.
@@ -255,7 +255,7 @@ class AnyLink(span_token.SpanToken):
         self.target = url
         self.title = url
 
-# %% ../nbs/05_mdmanager.ipynb 16
+# %% ../nbs/05_mdmanager.ipynb 15
 class Properties(Token):
     repr_attributes = ("key", "children")
 
@@ -292,7 +292,7 @@ class Properties(Token):
             # Fallback for non-string values
             return [RawText(str(value))]
 
-# %% ../nbs/05_mdmanager.ipynb 17
+# %% ../nbs/05_mdmanager.ipynb 16
 class TagLink(Link):
     """
     Obsidian-style tag link #tag that behaves like a mistletoe.Link.
@@ -309,7 +309,7 @@ class TagLink(Link):
         tag_name = match.group(1)
 
         # URL target (you can change the prefix to match your app)
-        self.target = MountPaths.tag.to(tag=tag_name)
+        self.target = MountPaths.tags.to(name=tag_name)
         self.title = f"#{tag_name}"
         self.label = None
         self.dest_type = "taglink"
@@ -319,7 +319,7 @@ class TagLink(Link):
         self.children = [RawText(f"#{tag_name}")]
         self.fname = f"#{tag_name}"
 
-# %% ../nbs/05_mdmanager.ipynb 18
+# %% ../nbs/05_mdmanager.ipynb 17
 class Frontmatter(BlockToken):
     """
     YAML Frontmatter token.
@@ -384,7 +384,7 @@ class Frontmatter(BlockToken):
             buffer.append(line)
         return "".join(buffer)
 
-# %% ../nbs/05_mdmanager.ipynb 19
+# %% ../nbs/05_mdmanager.ipynb 18
 CALLOUT_TYPE_MAP = {
     'info': 'info', 'tip': 'tip', 'warning': 'warning',
     'caution': 'warning', 'danger': 'danger', 'error': 'danger',
@@ -467,7 +467,7 @@ class ObsidianCallout(Quote):
         self.callout_title = title or canonical_type.capitalize()
 
 
-# %% ../nbs/05_mdmanager.ipynb 20
+# %% ../nbs/05_mdmanager.ipynb 19
 class ObsidianAstRenderer(AstRenderer):
     def __init__(self,  **kwargs):
         super().__init__(Frontmatter, WikiLink, TagLink, AnyLink, ObsidianLink, ObsidianEmbed, ObsidianCallout, **kwargs)  # register custom token
@@ -494,10 +494,7 @@ class ObsidianAstRenderer(AstRenderer):
         # Just return dict so AST expansion shows structured metadata
         return token.children
 
-# %% ../nbs/05_mdmanager.ipynb 21
-from . import engine
-
-
+# %% ../nbs/05_mdmanager.ipynb 20
 class ObsidianHTMLRenderer(HTMLRenderer):
 
     # VIDEO_EXTS = {".mp4", ".webm", ".ogg", ".mov", ".mkv"}
@@ -656,7 +653,7 @@ class ObsidianHTMLRenderer(HTMLRenderer):
         # Otherwise, fall back to the default implementation:
         return super().render_block_code(token)
 
-# %% ../nbs/05_mdmanager.ipynb 24
+# %% ../nbs/05_mdmanager.ipynb 23
 def get_links(root, link_types=(Link, AnyLink)):
     result = []
     if hasattr(root, 'children') and not isinstance(root, span_token.SpanToken) and root.children is not None:

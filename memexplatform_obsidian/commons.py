@@ -23,7 +23,7 @@ config = ObsidianConfig(); config
 class MountPaths(Enum):
     gradio_url = config.PREFIX + "_gradio"
     open = "/open"
-    tag = "/tag"
+    tags = "/tags"
     embed="/embed"
     obsidian_url = "obsidian://open"
     edit = "/edit"

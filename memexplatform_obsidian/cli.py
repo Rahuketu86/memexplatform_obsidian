@@ -33,6 +33,7 @@ def sync_vault(reindex=False):
     from memexplatform_obsidian.datastore import DBStore
     from memexplatform_obsidian.commons import config
     store = DBStore(config)
+    store.initdb()
     store.sync_vault(reindex=reindex)
 
 # %% ../nbs/01_cli.ipynb 9
