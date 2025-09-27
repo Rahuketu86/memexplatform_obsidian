@@ -21,6 +21,7 @@ from .mdmanager import ObsidianPage, guess_mime
 from .datastore import DBStore, FileStore
 from io import BytesIO
 import uuid
+from .home import homepage
 
 # %% ../nbs/00_core.ipynb 5
 def create_app():
@@ -33,26 +34,51 @@ def create_app():
     SurrealGlobalAdd = Script("surreal.globalsAdd());");
     Plotly = Script(src="https://cdn.plot.ly/plotly-3.0.1.min.js")
      # Observable (OJS) runtime + stdlib
+    # ObservableJS runtime with HTMX support
     OJSRuntime = Script(type="module", content="""
 import {Runtime, Inspector} from "https://cdn.jsdelivr.net/npm/@observablehq/runtime@5/dist/runtime.js";
 import {Library} from "https://cdn.jsdelivr.net/npm/@observablehq/stdlib@5/dist/stdlib.js";
 import {parser} from "https://cdn.jsdelivr.net/npm/@observablehq/parser@5/dist/parser.min.js";
 
-// Find all <script type="ojs">
-document.querySelectorAll("script[type='ojs']").forEach(script => {
-  const containerId = script.dataset.container;
-  const container = document.getElementById(containerId);
-  const code = script.textContent;
-
-  // Parse OJS source into cells
-  const parsed = parser.module(code);
-
-  const runtime = new Runtime(new Library());
-  const main = runtime.module(parsed);
-
-  // Render each defined cell into the container
-  main.variable(Inspector(container));
+// Wait for DOM to be ready
+document.addEventListener('DOMContentLoaded', function() {
+    // Find all <script type="ojs"> and process them
+    document.querySelectorAll("script[type='ojs']").forEach(script => {
+        const containerId = script.dataset.container;
+        const container = document.getElementById(containerId);
+        const code = script.textContent;
+        
+        if (!container) {
+            console.error('Container not found:', containerId);
+            return;
+        }
+        
+        try {
+            // Parse OJS source into cells
+            const parsed = parser.parseModule(code);
+            const runtime = new Runtime(new Library());
+            const main = runtime.module(parsed);
+            
+            // Create inspector for the container
+            const inspector = new Inspector(container);
+            
+            // For each cell in the module, create a variable
+            for (const cell of parsed.cells) {
+                if (cell.id && cell.id.name) {
+                    main.variable(inspector).define(cell.id.name, cell.body);
+                } else {
+                    // Anonymous cells
+                    main.variable(inspector).define(null, cell.body);
+                }
+            }
+        } catch (error) {
+            console.error('Error parsing OJS code:', error);
+            container.innerHTML = `<div style="color: red;">Error rendering OJS: ${error.message}</div>`;
+        }
+    });
+});
 """)
+    
 
     GradioLiteCSS = Link(rel="stylesheet", href="https://cdn.jsdelivr.net/npm/@gradio/lite/dist/lite.css")
     GradioLiteJS = Script(type="module", crossorigin=True, src="https://cdn.jsdelivr.net/npm/@gradio/lite/dist/lite.js")
@@ -70,13 +96,10 @@ app, rt = create_app()
 # %% ../nbs/00_core.ipynb 7
 @rt
 def index(request:Request):
-
-    # listteam_comp = Container(Div('Team'), hx_get=f'/portal/list_team', hx_target='#listteam', id='listteam', hx_swap='innerHTML',hx_vals=json.dumps({"folder": str(config.NBPATH)}),  hx_trigger='load')
-    comp = Div("Obsidian Companion")
-    
+    comp = homepage(config)
     return ifhtmx(request, comp)
 
-# %% ../nbs/00_core.ipynb 9
+# %% ../nbs/00_core.ipynb 8
 @rt
 def edit(request:Request, session):
     obsidian_url = session['obsidian_url']
@@ -86,10 +109,7 @@ def edit(request:Request, session):
     return resp
     
 
-# %% ../nbs/00_core.ipynb 12
-#| export
-
-# %% ../nbs/00_core.ipynb 13
+# %% ../nbs/00_core.ipynb 9
 def backlinkscomp(bls):
     if bls:
         print(bls)
@@ -110,7 +130,7 @@ def backlinkscomp(bls):
             cls='menu bg-base-200 text-base-content min-h-full w-80 p-4',
             hx_swap_oob='outerHTML')
 
-# %% ../nbs/00_core.ipynb 14
+# %% ../nbs/00_core.ipynb 10
 def LinkCard(src):
     card = Card(H4(src.title),
                 cls="p-4 flex flex-col items-center text-center",
@@ -121,14 +141,14 @@ def LinkCard(src):
     return A(card, href=src.url, cls="block hover:shadow-lg transition duration-300")
 
 
-# %% ../nbs/00_core.ipynb 15
+# %% ../nbs/00_core.ipynb 11
 def LinksComp(links):
     if links: cards = [LinkCard(src) for src in links]
     else:cards = [Card(H4("No links found"))]
     return Grid(*cards, lg=3)
     
 
-# %% ../nbs/00_core.ipynb 16
+# %% ../nbs/00_core.ipynb 12
 @rt
 def tags(request:Request, name:str):
     if config.ENABLE_DB_MODE: 
@@ -142,14 +162,14 @@ def tags(request:Request, name:str):
         return ifhtmx(request,comp)
     else: return ifhtmx(request, Div("Taglist only supported in DBMODE"))
 
-# %% ../nbs/00_core.ipynb 17
+# %% ../nbs/00_core.ipynb 13
 @rt
 def getbacklinks(request: Request,lockey:str):
     store = DBStore(config) if config.ENABLE_DB_MODE else FileStore(config)
     bls = store.backlinks(lockey) 
     return backlinkscomp(bls)
 
-# %% ../nbs/00_core.ipynb 19
+# %% ../nbs/00_core.ipynb 15
 @rt
 def open(request: Request, session, file: str = "", title: Optional[str]=None):
     # VIDEO_EXTS = (".mp4", ".webm", ".ogg", ".mov", ".mkv")
@@ -171,17 +191,7 @@ def open(request: Request, session, file: str = "", title: Optional[str]=None):
             LinksComp(out['content'])
         )
         return ifhtmx(request, comp)
-        # items = []
-        # for p in out['content']:
-        #     name = p['fname']
-        #     href = p['url']
-        #     items.append(Li(A(name, href=href)))
-        # return ifhtmx(request,
-        #     Div(
-        #         f"Listing for {out['title']}:",
-        #         Ul(*items)
-        #     )
-        # )
+        
     elif out['response_type'] == ResponseTypes.html:
         html = out['content']
         session['obsidian_url'] = out['obsidian_url']
@@ -285,13 +295,13 @@ def open(request: Request, session, file: str = "", title: Optional[str]=None):
     else:
         return ifhtmx(request, Div("No Response"))
 
-# %% ../nbs/00_core.ipynb 20
+# %% ../nbs/00_core.ipynb 16
 def iter_file(path, chunk_size=8192):
     with open(path, "rb") as f:
         while chunk := f.read(chunk_size):
             yield chunk
 
-# %% ../nbs/00_core.ipynb 22
+# %% ../nbs/00_core.ipynb 18
 def CollapsibleBlocks(title, comp):
     return Div(
             Input(type='checkbox'),
@@ -300,13 +310,9 @@ def CollapsibleBlocks(title, comp):
             cls='collapse collapse-plus border'
         )
 
-# %% ../nbs/00_core.ipynb 24
+# %% ../nbs/00_core.ipynb 20
 @rt
 def embed(request: Request, file: str = "", ext: Optional[str] = None, title: Optional[str] = None):
-    # VIDEO_EXTS = {".mp4", ".webm", ".ogg", ".mov", ".mkv"}
-    # AUDIO_EXTS = {".mp3", ".wav", ".ogg", ".m4a", ".flac"}
-    # IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"}
-    # TEXTLIKE_EXTS = {".md", ".qmd", ".canvas", ".base"}
 
     store = DBStore(config) if config.ENABLE_DB_MODE else FileStore(config)
     out = store.query_file(file)

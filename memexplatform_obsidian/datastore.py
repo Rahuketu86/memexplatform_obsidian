@@ -251,7 +251,7 @@ class Backlink(Link):
 class Tlink(Link):
     tag: str
 
-# %% ../nbs/07_datastore.ipynb 17
+# %% ../nbs/07_datastore.ipynb 15
 class NoteStore(ABC):
     @property
     @abstractmethod
@@ -275,7 +275,7 @@ class NoteStore(ABC):
     def tlinks(self, tag):
         ...
 
-# %% ../nbs/07_datastore.ipynb 18
+# %% ../nbs/07_datastore.ipynb 16
 class FileStore(NoteStore):
 
     def __init__(self, config):
@@ -307,10 +307,6 @@ class FileStore(NoteStore):
 
 
     def query_file(self, file) -> Dict: # returns fullpath, is_folder
-        # VIDEO_EXTS = (".mp4", ".webm", ".ogg", ".mov", ".mkv")
-        # AUDIO_EXTS = (".mp3", ".wav", ".ogg", ".m4a", ".flac")
-        # IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp")
-        # TEXTLIKE_EXTS = (".md", ".qmd", ".canvas", ".base")
         search_term = urllib.parse.unquote(file); search_term
         rel_path = Path(search_term); rel_path
         fname = rel_path.name
@@ -396,7 +392,7 @@ class FileStore(NoteStore):
     def tlinks(self, tag):
         return None
 
-# %% ../nbs/07_datastore.ipynb 22
+# %% ../nbs/07_datastore.ipynb 20
 class DBStore(NoteStore):
 
     def __init__(self, config):
@@ -428,13 +424,8 @@ class DBStore(NoteStore):
                             _title=d['title']) 
                             for d in self.db['node'].rows_where("parent = ?", (str(folder),), 
                             select='lockey, title'))
-        # return super().listing(folder)
 
     def query_file(self, file):
-        # VIDEO_EXTS = (".mp4", ".webm", ".ogg", ".mov", ".mkv")
-        # AUDIO_EXTS = (".mp3", ".wav", ".ogg", ".m4a", ".flac")
-        # IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp")
-        # TEXTLIKE_EXTS = (".md", ".qmd", ".canvas", ".base", ".ipynb")
         search_term = urllib.parse.unquote(file); search_term
         rel_path = Path(search_term); rel_path
         fname = rel_path.name
@@ -590,3 +581,6 @@ class DBStore(NoteStore):
         backlinks = list( Tlink(tag=tag, lockey=tl['lockey'], db=self.db) for tl in self.db['properties'].rows_where(query, params, select='lockey'))
         # print(backlinks)
         return backlinks
+
+    # def query(self, q):
+    #     return self.db.query(q)
