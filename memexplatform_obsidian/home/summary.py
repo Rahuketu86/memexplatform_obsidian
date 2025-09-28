@@ -30,8 +30,7 @@ def get_df(config, fldrs = ['pages', 'journals'], extensions = ExtensionTypes.TE
         df['created_time'] = pd.to_datetime(df['created_time'],  unit='s', utc=True).dt.date
         df['modified_time'] = pd.to_datetime(df['modified_time'], unit='s', utc=True).dt.date
         return df
-    else:
-        return None
+    else: return None
 
 # %% ../../nbs/09a_home.summary.ipynb 6
 def chart_tags():
