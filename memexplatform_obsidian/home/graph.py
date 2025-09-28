@@ -193,5 +193,5 @@ def get_graph():
     net = build_network(db_nodes, db_links, in_deg, out_deg, total_deg)
     graph_html_str = export_network_to_buffer(net)  # <- ready for ft.NotStr(graph_html_str)
     # graph_html_str
-    return NotStr(graph_html_str)
+    return graph_html_str
 

@@ -50,7 +50,24 @@ def summary(config):
 # %% ../../nbs/09_home.ipynb 5
 def homepage(config):
     summary_comp = summary(config)
-    graph = get_graph()
+    graph = Card(
+        Iframe(
+            srcdoc=get_graph(),
+            style="""
+                position: absolute;
+                top: 0; left: 0;
+                width: 100%; height: 80%;
+                border: none;
+            """
+        ),
+       style="""
+            position: relative; 
+            height: calc(100vh - 60px);
+            border: none;       /* remove border */
+            box-shadow: none;   /* remove shadow if any */
+            padding: 0;         /* remove padding */
+       """  # Card has fixed viewport height
+    )
     comp = Div(
             TabContainer(
                 Li(A("Summary",href='#', cls='uk-active')),
