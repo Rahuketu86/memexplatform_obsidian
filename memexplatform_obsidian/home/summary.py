@@ -32,7 +32,7 @@ def get_df(config, fldrs = ['pages', 'journals'], extensions = ExtensionTypes.TE
         return df
     else: return None
 
-# %% ../../nbs/09a_home.summary.ipynb 6
+# %% ../../nbs/09a_home.summary.ipynb 5
 def chart_tags():
     store =  DBStore(config) if config.ENABLE_DB_MODE else FileStore(config)
     query = f"""
@@ -83,11 +83,11 @@ def chart_tags():
         cls="max-w-3xl max-h-lg"
     )
 
-# %% ../../nbs/09a_home.summary.ipynb 9
+# %% ../../nbs/09a_home.summary.ipynb 8
 def InfoCard(title, value, change): 
     return Card(H3(value), footer=P(change, cls=TextPresets.muted_sm), header = H4(title))
 
-# %% ../../nbs/09a_home.summary.ipynb 11
+# %% ../../nbs/09a_home.summary.ipynb 10
 def get_infocard(df, header='Notes'):
     if df is not None:
         count = df.count()['title']
@@ -99,7 +99,7 @@ def get_infocard(df, header='Notes'):
         m = "No additional info"
     return InfoCard(header, count, m)
 
-# %% ../../nbs/09a_home.summary.ipynb 12
+# %% ../../nbs/09a_home.summary.ipynb 11
 def chart_timeseries(df):
     # Convert dataframe into Apex format
     df_created = df.groupby('created_time')['title'].count()
