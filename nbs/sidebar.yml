@@ -3,6 +3,31 @@ website:
     contents:
       - index.ipynb
       - 00_core.ipynb
+      - 01_cli.ipynb
       - 02_plugin.ipynb
       - 03_settings.ipynb
       - 04_commons.ipynb
+      - 05_mdmanager.ipynb
+      - 06_jupyter.ipynb
+      - 07_datastore.ipynb
+      - 08a_engine.apexchat.ipynb
+      - 09_home.ipynb
+      - 09a_home.summary.ipynb
+      - 09b_home.graph.ipynb
+      - custom.scss
+      - nbdev.yml
+      - sidebar.yml
+      - styles.css
+      - section: lib
+        contents:
+          - section: bindings
+            contents:
+              - lib/bindings/utils.js
+          - section: tom-select
+            contents:
+              - lib/tom-select/tom-select.complete.min.js
+              - lib/tom-select/tom-select.css
+          - section: vis-9.1.2
+            contents:
+              - lib/vis-9.1.2/vis-network.css
+              - lib/vis-9.1.2/vis-network.min.js
