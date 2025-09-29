@@ -20,8 +20,7 @@ class ObsidianConfig(BaseSettings):
         env_prefix="MEMEXPLATFORM_",
         env_parse_none_str="",
     )
-
     PREFIX: str = "/obsidian"
-    OBSIDIAN_VAULT: DirectoryPath
-    OBSIDIAN_DB:FilePath|NewPath
+    OBSIDIAN_VAULT: DirectoryPath = pathlib.Path.home() / "obsidian_vault"
+    OBSIDIAN_DB: FilePath|NewPath = pathlib.Path.home() / "obsidian_db" / "memexplatform_obsidian.db"
     ENABLE_DB_MODE:bool = False
